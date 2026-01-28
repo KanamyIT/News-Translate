@@ -8,14 +8,18 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ==================== MIDDLEWARE ====================
 app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '8mb' }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true, limit: '8mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// -------------------- MyMemory translate --------------------
+// ==================== TRANSLATION SYSTEM ====================
+
+// Кэш переводов
 const trCache = new Map();
 
+// Перевод через MyMemory API
 async function myMemoryTranslate(text, from = 'en', to = 'ru') {
   const clean = String(text || '').trim();
   if (!clean) return clean;
@@ -23,14 +27,19 @@ async function myMemoryTranslate(text, from = 'en', to = 'ru') {
   const key = `${from}|${to}|${clean}`;
   if (trCache.has(key)) return trCache.get(key);
 
-  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(clean)}&langpair=${from}|${to}`;
-  const { data } = await axios.get(url, { timeout: 20000 });
-
-  const translated = data?.responseData?.translatedText || clean;
-  trCache.set(key, translated);
-  return translated;
+  try {
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(clean)}&langpair=${from}|${to}`;
+    const { data } = await axios.get(url, { timeout: 20000 });
+    const translated = data?.responseData?.translatedText || clean;
+    trCache.set(key, translated);
+    return translated;
+  } catch (err) {
+    console.error('Translation error:', err.message);
+    return clean;
+  }
 }
 
+// Разделение текста на части для перевода
 function splitText(text, maxLen = 480) {
   const s = String(text || '');
   if (s.length <= maxLen) return [s];
@@ -48,14 +57,22 @@ function splitText(text, maxLen = 480) {
   return parts;
 }
 
+// Перевод длинного текста
 async function translateLong(text, from = 'en', to = 'ru') {
   const chunks = splitText(text, 480);
   let out = '';
-  for (const ch of chunks) out += await myMemoryTranslate(ch, from, to).catch(() => ch);
+  for (const ch of chunks) {
+    out += await myMemoryTranslate(ch, from, to).catch(() => ch);
+  }
   return out;
 }
 
-function hasCyrillic(s) { return /[А-Яа-яЁё]/.test(String(s || '')); }
+// Проверка на кириллицу
+function hasCyrillic(s) {
+  return /[А-Яа-яЁё]/.test(String(s || ''));
+}
+
+// Проверка на английский
 function looksEnglish(s) {
   const t = String(s || '').trim();
   if (!t) return false;
@@ -63,15 +80,11 @@ function looksEnglish(s) {
   return /[A-Za-z]/.test(t);
 }
 
-// защита “кодовых” токенов типа print/console.log/document.getElementById
+// Защита кодовых токенов
 const CODE_WORDS = [
-  'print', 'printf', 'echo',
-  'console', 'console.log',
-  'document', 'window',
-  'getElementById', 'querySelector',
-  'function', 'return', 'let', 'const', 'var',
-  'class', 'new', 'import', 'from', 'export',
-  'async', 'await', 'def'
+  'print', 'printf', 'echo', 'console', 'console.log', 'document', 'window',
+  'getElementById', 'querySelector', 'function', 'return', 'let', 'const',
+  'var', 'class', 'new', 'import', 'from', 'export', 'async', 'await', 'def'
 ];
 
 function protectCodeTokens(text) {
@@ -79,7 +92,9 @@ function protectCodeTokens(text) {
   if (!src) return { protectedText: src, replacements: [] };
 
   const found = [];
-  const add = (v) => { if (v && !found.includes(v)) found.push(v); };
+  const add = (v) => {
+    if (v && !found.includes(v)) found.push(v);
+  };
 
   for (const m of src.matchAll(/\b[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*\b/g)) add(m[0]);
   for (const m of src.matchAll(/\b([A-Za-z_][A-Za-z0-9_]*)\s*\(/g)) add(m[1]);
@@ -108,6 +123,7 @@ function restoreCodeTokens(text, replacements) {
   return out;
 }
 
+// Основная функция перевода
 async function toRuIfNeeded(text) {
   const t = String(text || '').trim();
   if (!t) return t;
@@ -118,7 +134,8 @@ async function toRuIfNeeded(text) {
   return restoreCodeTokens(tr, replacements);
 }
 
-// -------------------- Helpers --------------------
+// ==================== HELPERS ====================
+
 function absolutizeUrl(src, baseUrl) {
   try {
     if (!src) return src;
@@ -140,7 +157,9 @@ function removeOnAttributes($root) {
   });
 }
 
-// -------------------- Image proxy (for OCR + CORS) --------------------
+// ==================== API ROUTES ====================
+
+// Image proxy
 app.get('/api/image', async (req, res) => {
   try {
     const url = String(req.query.url || '').trim();
@@ -162,9 +181,15 @@ app.get('/api/image', async (req, res) => {
   }
 });
 
-// -------------------- Translate URL (returns HTML) --------------------
+// Translate URL endpoint
 function pickMainScope($, url) {
-  const host = (() => { try { return new URL(url).hostname; } catch { return ''; } })();
+  const host = (() => {
+    try {
+      return new URL(url).hostname;
+    } catch {
+      return '';
+    }
+  })();
 
   if (host.includes('wikipedia.org')) {
     const w = $('#mw-content-text').first();
@@ -191,15 +216,16 @@ function cleanupScope($scope) {
 async function translateTextNodesCheerio($, $root, baseUrl) {
   const SKIP = new Set(['script', 'style', 'noscript', 'pre', 'code', 'kbd', 'samp', 'var']);
 
-  // images: absolute + proxy + alt/title translate
+  // Обработка изображений
   $root.find('img').each((_, el) => {
     const $img = $(el);
     const srcRaw = $img.attr('src') || $img.attr('data-src') || $img.attr('data-original');
     const abs = absolutizeUrl(srcRaw, baseUrl);
-
-    if (abs && /^https?:\/\//i.test(abs)) $img.attr('src', `/api/image?url=${encodeURIComponent(abs)}`);
-    else $img.attr('src', abs || '');
-
+    if (abs && /^https?:\/\//i.test(abs)) {
+      $img.attr('src', `/api/image?url=${encodeURIComponent(abs)}`);
+    } else {
+      $img.attr('src', abs || '');
+    }
     $img.attr('loading', 'lazy');
     $img.attr('style', (String($img.attr('style') || '') + ';max-width:100%;height:auto;border-radius:12px;').trim());
   });
@@ -209,7 +235,6 @@ async function translateTextNodesCheerio($, $root, baseUrl) {
 
   nodes.each((_, node) => {
     if (node.type !== 'text') return;
-
     const parentTag = node.parent && node.parent.name ? String(node.parent.name).toLowerCase() : '';
     if (SKIP.has(parentTag)) return;
 
@@ -218,9 +243,7 @@ async function translateTextNodesCheerio($, $root, baseUrl) {
 
     const t = raw.replace(/\s+/g, ' ').trim();
     if (!t) return;
-
-    // не трогаем явный код
-    if (/[{}()[\];<>]|=>|::|->|==|!=|===/.test(t)) return;
+    if (/[{}()\[\];<>]|=>|::|->|==|!=|===/.test(t)) return;
 
     uniq.add(t);
   });
@@ -231,16 +254,17 @@ async function translateTextNodesCheerio($, $root, baseUrl) {
 
   for (let i = 0; i < list.length; i += CONCURRENCY) {
     const batch = list.slice(i, i + CONCURRENCY);
-    const results = await Promise.all(batch.map(async (t) => {
-      if (hasCyrillic(t)) return [t, t];
-      return [t, await toRuIfNeeded(t)];
-    }));
+    const results = await Promise.all(
+      batch.map(async (t) => {
+        if (hasCyrillic(t)) return [t, t];
+        return [t, await toRuIfNeeded(t)];
+      })
+    );
     results.forEach(([k, v]) => map.set(k, v));
   }
 
   nodes.each((_, node) => {
     if (node.type !== 'text') return;
-
     const parentTag = node.parent && node.parent.name ? String(node.parent.name).toLowerCase() : '';
     if (SKIP.has(parentTag)) return;
 
@@ -255,6 +279,7 @@ async function translateTextNodesCheerio($, $root, baseUrl) {
     node.data = lead + map.get(t) + trail;
   });
 
+  // Перевод alt и title для изображений
   const imgs = $root.find('img');
   for (let i = 0; i < imgs.length; i++) {
     const $img = $(imgs[i]);
@@ -272,13 +297,14 @@ app.post('/api/translate-url', async (req, res) => {
 
     const response = await axios.get(url, {
       timeout: 30000,
-      headers: { 'User-Agent': 'Mozilla/5.0 (Render; Node.js)', 'Accept-Language': 'ru,en;q=0.8' }
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Render; Node.js)',
+        'Accept-Language': 'ru,en;q=0.8'
+      }
     });
 
     const $ = cheerio.load(response.data);
-
-    const rawTitle =
-      $('meta[property="og:title"]').attr('content') ||
+    const rawTitle = $('meta[property="og:title"]').attr('content') ||
       $('h1').first().text().trim() ||
       $('title').text().trim() ||
       'Статья';
@@ -286,14 +312,11 @@ app.post('/api/translate-url', async (req, res) => {
     const $scope = pickMainScope($, url);
     cleanupScope($scope);
 
-    const $out = $('<div class="translated-article"></div>');
-
-    const selector =
-      'h1,h2,h3,h4,h5,h6,p,ul,ol,li,pre,blockquote,figure,img,figcaption,' +
+    const $out = $('');
+    const selector = 'h1,h2,h3,h4,h5,h6,p,ul,ol,li,pre,blockquote,figure,img,figcaption,' +
       'div.w3-panel,div.w3-note,div.w3-example,div.w3-info,div.w3-warning';
 
     const els = $scope.find(selector).toArray();
-
     let added = 0;
     let charBudget = 0;
     const MAX_ELEMS = 520;
@@ -326,7 +349,7 @@ app.post('/api/translate-url', async (req, res) => {
     res.json({
       success: true,
       title: await toRuIfNeeded(rawTitle),
-      contentHtml: $out.html() || '<p>Не удалось извлечь контент.</p>',
+      contentHtml: $out.html() || '\n\nНе удалось извлечь контент.',
       sourceUrl: url
     });
   } catch (e) {
@@ -334,33 +357,39 @@ app.post('/api/translate-url', async (req, res) => {
   }
 });
 
-// translate-text for OCR / text tab
+// Translate text endpoint
 app.post('/api/translate-text', async (req, res) => {
   try {
     const { text, from = 'en', to = 'ru' } = req.body || {};
     if (!text) return res.status(400).json({ success: false, error: 'Текст не предоставлен' });
-    res.json({ success: true, translated: await translateLong(text, from, to) });
+
+    res.json({
+      success: true,
+      translated: await translateLong(text, from, to)
+    });
   } catch (e) {
     res.status(500).json({ success: false, error: `Ошибка перевода: ${e.message || 'unknown'}` });
   }
 });
 
-// weather (как у тебя было можно оставить/доработать позже)
+// Weather endpoint
 app.get('/api/weather', async (req, res) => {
   try {
     const city = String(req.query.city || 'Moscow');
-    const { data } = await axios.get(`https://wttr.in/${encodeURIComponent(city)}?format=j1&lang=ru`, {
-      timeout: 15000,
-      headers: { 'User-Agent': 'Mozilla/5.0 (Render; Node.js)', 'Accept-Language': 'ru' }
-    });
+    const { data } = await axios.get(
+      `https://wttr.in/${encodeURIComponent(city)}?format=j1&lang=ru`,
+      {
+        timeout: 15000,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Render; Node.js)',
+          'Accept-Language': 'ru'
+        }
+      }
+    );
 
     const current = data?.current_condition?.[0];
     const area = data?.nearest_area?.[0];
-
-    const desc =
-      current?.lang_ru?.[0]?.value ||
-      current?.weatherDesc?.[0]?.value ||
-      '—';
+    const desc = current?.lang_ru?.[0]?.value || current?.weatherDesc?.[0]?.value || '—';
 
     const forecast = (data?.weather || []).slice(0, 3).map((d) => {
       const mid = (d.hourly || []).find(h => String(h.time) === '1200') || (d.hourly || [])[0] || null;
@@ -379,7 +408,7 @@ app.get('/api/weather', async (req, res) => {
   }
 });
 
-// articles (переводим заголовки карточек)
+// Articles endpoint
 const ARTICLES = {
   programming: [
     { title: 'JavaScript Tutorial (W3Schools)', url: 'https://www.w3schools.com/js/' },
@@ -416,12 +445,16 @@ app.get('/api/articles/:category', async (req, res) => {
     const { category } = req.params;
     const list = ARTICLES[category] || [];
 
-    const out = await Promise.all(list.map(async (a) => {
-      if (articleTitleCache.has(a.title)) return { ...a, title: articleTitleCache.get(a.title) };
-      const tr = await toRuIfNeeded(a.title);
-      articleTitleCache.set(a.title, tr);
-      return { ...a, title: tr };
-    }));
+    const out = await Promise.all(
+      list.map(async (a) => {
+        if (articleTitleCache.has(a.title)) {
+          return { ...a, title: articleTitleCache.get(a.title) };
+        }
+        const tr = await toRuIfNeeded(a.title);
+        articleTitleCache.set(a.title, tr);
+        return { ...a, title: tr };
+      })
+    );
 
     res.json({ success: true, articles: out });
   } catch (e) {
@@ -429,10 +462,18 @@ app.get('/api/articles/:category', async (req, res) => {
   }
 });
 
+// Health check
 app.get('/api/health', (req, res) => res.json({ success: true }));
 
-// routes: cards page and translate page
+// Routes
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/translate', (req, res) => res.sendFile(path.join(__dirname, 'public', 'translate.html')));
 
-app.listen(PORT, () => console.log(`✅ Server on :${PORT}`));
+// 404
+app.use((req, res) => res.status(404).json({ success: false, error: 'Endpoint не найден' }));
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`✅ Сервер запущен на http://localhost:${PORT}`);
+  console.log(`📡 API доступен на http://localhost:${PORT}/api`);
+});
