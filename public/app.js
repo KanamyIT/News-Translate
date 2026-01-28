@@ -1,5 +1,13 @@
 (() => {
-  const facts = [
+  // -------------------- Config --------------------
+  const CAT_RU = {
+    programming: 'программирование',
+    history: 'история',
+    games: 'игры',
+    cinema: 'кино'
+  };
+
+  const FUN_FACTS = [
     "JavaScript был создан за 10 дней в 1995 году!",
     "Python получил имя от комедийного шоу Monty Python!",
     "Node.js позволяет использовать JavaScript на серверах!",
@@ -7,15 +15,21 @@
     "HTML начинался с очень маленького набора тегов!"
   ];
 
+  // -------------------- Helpers --------------------
   const byId = (id) => (id && typeof id === 'string' ? document.getElementById(id) : null);
 
   function escapeHtml(str) {
     return String(str ?? '')
-      .replaceAll('&','&amp;')
-      .replaceAll('<','&lt;')
-      .replaceAll('>','&gt;')
-      .replaceAll('"','&quot;')
-      .replaceAll("'","&#039;");
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
+  }
+
+  async function apiJson(url, options) {
+    const r = await fetch(url, options);
+    return await r.json();
   }
 
   function speak(text) {
@@ -28,31 +42,31 @@
     } catch {}
   }
 
-  function setFact() {
-    const el = byId('factText');
-    if (!el) return;
-    el.textContent = facts[Math.floor(Math.random() * facts.length)];
-  }
-
   function setTheme(dark) {
     document.body.classList.toggle('dark', !!dark);
     localStorage.setItem('theme', dark ? 'dark' : 'light');
   }
 
+  function setFact() {
+    const el = byId('factText');
+    if (!el) return;
+    el.textContent = FUN_FACTS[Math.floor(Math.random() * FUN_FACTS.length)];
+  }
+
+  // -------------------- UI: tabs --------------------
   function switchTab(tab) {
     if (!tab) return;
 
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-    const pane = byId(`${tab}-tab`);
-    if (pane) pane.classList.remove('hidden');
+    byId(`${tab}-tab`)?.classList.remove('hidden');
 
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    const btn = document.querySelector(`.tab-btn[data-tab="${tab}"]`);
-    if (btn) btn.classList.add('active');
+    document.querySelector(`.tab-btn[data-tab="${tab}"]`)?.classList.add('active');
 
     if (tab === 'weather') updateWeatherAll();
   }
 
+  // -------------------- UI: content area --------------------
   function showLoading() {
     const area = byId('contentArea');
     if (!area) return;
@@ -62,16 +76,15 @@
   function showError(msg) {
     const area = byId('contentArea');
     if (!area) return;
-    area.innerHTML = `<div class="result"><h3 style="color:var(--orange);margin-bottom:10px">Ошибка</h3><p>${escapeHtml(msg)}</p></div>`;
+    area.innerHTML = `
+      <div class="result">
+        <h3 style="color:var(--orange);margin-bottom:10px">Ошибка</h3>
+        <p>${escapeHtml(msg)}</p>
+      </div>
+    `;
   }
 
-  // ---------- API helpers ----------
-  async function apiJson(url, options) {
-    const r = await fetch(url, options);
-    return await r.json();
-  }
-
-  // ---------- Articles ----------
+  // -------------------- Articles --------------------
   async function loadCategory(category) {
     const grid = byId('articlesGrid');
     if (!grid) return;
@@ -87,42 +100,51 @@
         return;
       }
 
+      const catLabel = CAT_RU[category] || category;
+
       grid.innerHTML = list.map(a => `
         <div class="article" data-url="${escapeHtml(a.url)}">
           <h4>${escapeHtml(a.title)}</h4>
-          <div class="muted">${escapeHtml(category)} • нажми чтобы открыть</div>
+          <div class="muted">${escapeHtml(catLabel)} • нажми чтобы открыть</div>
           <div class="muted" style="margin-top:8px">${escapeHtml(a.url)}</div>
         </div>
       `).join('');
 
       grid.querySelectorAll('.article').forEach(card => {
         card.addEventListener('click', () => {
-          const url = card.dataset.url || '';
           const input = byId('urlInput');
-          if (input) input.value = url;
+          if (input) input.value = card.dataset.url || '';
           translateUrl();
         });
       });
     } catch (e) {
-      grid.innerHTML = `<div class="muted">Ошибка: ${escapeHtml(e?.message || '')}</div>`;
+      grid.innerHTML = `<div class="muted">Ошибка: ${escapeHtml(e?.message || 'network')}</div>`;
     }
   }
 
-  // ---------- Translate URL ----------
+  // -------------------- Translate URL --------------------
+  let translateUrlAbort = null;
+
   async function translateUrl() {
     const input = byId('urlInput');
     const url = (input?.value || '').trim();
     if (!url) return alert('Введите URL');
 
+    // отменяем предыдущий запрос (если пользователь кликает быстро)
+    try { translateUrlAbort?.abort(); } catch {}
+    translateUrlAbort = new AbortController();
+
     showLoading();
 
     try {
-      const data = await apiJson('/api/translate-url', {
+      const r = await fetch('/api/translate-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url })
+        body: JSON.stringify({ url }),
+        signal: translateUrlAbort.signal
       });
 
+      const data = await r.json();
       if (!data.success) return showError(data.error || 'Не удалось перевести');
 
       const area = byId('contentArea');
@@ -134,21 +156,22 @@
           <button class="small-btn" id="ocrBtn"><i class="fas fa-eye"></i> OCR: перевести текст на картинках</button>
         </div>
         <div class="result translated">
-          <h2 style="color:var(--orange);margin-bottom:10px">${escapeHtml(data.title)}</h2>
-          ${data.contentHtml}
+          <h2 style="color:var(--orange);margin-bottom:10px">${escapeHtml(data.title || 'Статья')}</h2>
+          ${data.contentHtml || '<p>Пусто</p>'}
         </div>
       `;
 
-      byId('speakBtn')?.addEventListener('click', () => speak(data.title));
+      byId('speakBtn')?.addEventListener('click', () => speak(data.title || ''));
       byId('ocrBtn')?.addEventListener('click', () => ocrTranslateImages());
 
-      speak(data.title);
+      speak(data.title || '');
     } catch (e) {
+      if (e?.name === 'AbortError') return;
       showError(e?.message || 'Ошибка сети');
     }
   }
 
-  // ---------- Translate text ----------
+  // -------------------- Translate Text tab --------------------
   async function translateText() {
     const text = (byId('textInput')?.value || '').trim();
     if (!text) return alert('Введите текст');
@@ -166,14 +189,20 @@
       if (!box) return;
 
       box.classList.remove('hidden');
-      box.innerHTML = `<h3 style="color:var(--orange);margin-bottom:10px">Перевод</h3><p>${escapeHtml(data.translated)}</p>`;
-      speak(data.translated);
+      box.innerHTML = `
+        <h3 style="color:var(--orange);margin-bottom:10px">Перевод</h3>
+        <p>${escapeHtml(data.translated || '')}</p>
+      `;
+      speak(data.translated || '');
     } catch (e) {
       alert(e?.message || 'Ошибка');
     }
   }
 
-  // ---------- Translate word ----------
+  // -------------------- Translate Word tab --------------------
+  let wordTimerEn = null;
+  let wordTimerRu = null;
+
   async function translateWord(word, direction, outEl) {
     const w = String(word || '').trim();
     if (!w) { outEl?.classList.add('hidden'); return; }
@@ -187,7 +216,7 @@
 
       if (!outEl) return;
       outEl.classList.remove('hidden');
-      outEl.textContent = data.success ? data.translation : 'Не найдено';
+      outEl.textContent = data.success ? (data.translation || '') : 'Не найдено';
     } catch {
       if (!outEl) return;
       outEl.classList.remove('hidden');
@@ -195,7 +224,7 @@
     }
   }
 
-  // ---------- Weather ----------
+  // -------------------- Weather --------------------
   function renderForecast(list) {
     if (!Array.isArray(list) || !list.length) return '';
     return list.map(d => `
@@ -238,7 +267,7 @@
     await updateWeatherInto('weatherNowTab', 'weatherForecastTab');
   }
 
-  // ---------- OCR (optional) ----------
+  // -------------------- OCR (optional) --------------------
   let tesseractLoading = null;
 
   function loadTesseract() {
@@ -293,11 +322,12 @@
           body: JSON.stringify({ text, from: 'en', to: 'ru' })
         });
 
-        const translated = tr?.success ? tr.translated : text;
+        const translated = tr?.success ? (tr.translated || '') : text;
+
         box.innerHTML = `
           <div class="ocr-title">OCR перевод</div>
-          <div class="muted"><b>Оригинал:</b> ${escapeHtml(text.slice(0, 500))}${text.length > 500 ? '…' : ''}</div>
-          <div style="margin-top:8px"><b>Перевод:</b> ${escapeHtml(String(translated).slice(0, 500))}${String(translated).length > 500 ? '…' : ''}</div>
+          <div class="muted"><b>Оригинал:</b> ${escapeHtml(text.slice(0, 600))}${text.length > 600 ? '…' : ''}</div>
+          <div style="margin-top:8px"><b>Перевод:</b> ${escapeHtml(String(translated).slice(0, 600))}${String(translated).length > 600 ? '…' : ''}</div>
         `;
       } catch {
         box.innerHTML = `<div class="ocr-title">OCR перевод</div><div class="muted">Ошибка OCR</div>`;
@@ -305,44 +335,51 @@
     }
   }
 
-  // ---------- Init ----------
+  // -------------------- Init --------------------
   document.addEventListener('DOMContentLoaded', () => {
     // theme
-    const saved = localStorage.getItem('theme');
-    setTheme(saved === 'dark');
-
-    byId('themeBtn')?.addEventListener('click', () => {
-      setTheme(!document.body.classList.contains('dark'));
-    });
+    setTheme(localStorage.getItem('theme') === 'dark');
+    byId('themeBtn')?.addEventListener('click', () => setTheme(!document.body.classList.contains('dark')));
 
     // tabs
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
-        const tab = btn.dataset.tab || '';
-        switchTab(tab);
+        switchTab(btn.dataset.tab || '');
       });
     });
 
-    // category buttons
+    // categories
     document.querySelectorAll('.cat-btn').forEach(btn => {
       btn.addEventListener('click', () => loadCategory(btn.dataset.cat || ''));
     });
 
-    // main actions
+    // actions
     byId('translateUrlBtn')?.addEventListener('click', translateUrl);
     byId('translateTextBtn')?.addEventListener('click', translateText);
 
-    // word inputs
+    // UX: Enter to translate URL
+    byId('urlInput')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') translateUrl();
+    });
+
+    // word inputs (debounce 250ms)
     const en = byId('wordEn');
     const ru = byId('wordRu');
     const outEn = byId('wordResEn');
     const outRu = byId('wordResRu');
 
-    en?.addEventListener('input', () => translateWord(en.value, 'en-ru', outEn));
-    ru?.addEventListener('input', () => translateWord(ru.value, 'ru-en', outRu));
+    en?.addEventListener('input', () => {
+      clearTimeout(wordTimerEn);
+      wordTimerEn = setTimeout(() => translateWord(en.value, 'en-ru', outEn), 250);
+    });
 
-    // initial
+    ru?.addEventListener('input', () => {
+      clearTimeout(wordTimerRu);
+      wordTimerRu = setTimeout(() => translateWord(ru.value, 'ru-en', outRu), 250);
+    });
+
+    // start
     setFact();
     setInterval(setFact, 15000);
     updateWeatherAll();
