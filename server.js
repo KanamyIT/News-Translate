@@ -13,10 +13,7 @@ app.use(express.json({ limit: '8mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-const translator = require('./translator');
-
-// ===================== MyMemory translate =====================
-// MyMemory часто ограничивает длину запроса ~500 символов, поэтому чанкуем коротко [web:213]
+// -------------------- MyMemory translate --------------------
 const trCache = new Map();
 
 async function myMemoryTranslate(text, from = 'en', to = 'ru') {
@@ -66,7 +63,7 @@ function looksEnglish(s) {
   return /[A-Za-z]/.test(t);
 }
 
-// ---------- Preserve code-like tokens ----------
+// защита “кодовых” токенов типа print/console.log/document.getElementById
 const CODE_WORDS = [
   'print', 'printf', 'echo',
   'console', 'console.log',
@@ -82,23 +79,15 @@ function protectCodeTokens(text) {
   if (!src) return { protectedText: src, replacements: [] };
 
   const found = [];
-  const add = (v) => {
-    if (!v) return;
-    if (found.includes(v)) return;
-    found.push(v);
-  };
+  const add = (v) => { if (v && !found.includes(v)) found.push(v); };
 
-  // a.b
   for (const m of src.matchAll(/\b[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*\b/g)) add(m[0]);
-  // func(
   for (const m of src.matchAll(/\b([A-Za-z_][A-Za-z0-9_]*)\s*\(/g)) add(m[1]);
-  // keywords
   for (const w of CODE_WORDS) {
     const re = new RegExp(`\\b${w.replace('.', '\\.')}\\b`, 'g');
     if (re.test(src)) add(w);
   }
 
-  // если ничего кодового нет — оставим
   if (!found.length) return { protectedText: src, replacements: [] };
 
   let out = src;
@@ -106,7 +95,6 @@ function protectCodeTokens(text) {
   found.forEach((token, idx) => {
     const ph = `@@CODE_${idx}@@`;
     replacements.push([ph, token]);
-    // заменяем все вхождения токена
     const re = new RegExp(`\\b${token.replace('.', '\\.')}\\b`, 'g');
     out = out.replace(re, ph);
   });
@@ -116,9 +104,7 @@ function protectCodeTokens(text) {
 
 function restoreCodeTokens(text, replacements) {
   let out = String(text || '');
-  for (const [ph, token] of replacements) {
-    out = out.replaceAll(ph, token);
-  }
+  for (const [ph, token] of replacements) out = out.replaceAll(ph, token);
   return out;
 }
 
@@ -132,16 +118,7 @@ async function toRuIfNeeded(text) {
   return restoreCodeTokens(tr, replacements);
 }
 
-// ===================== Helpers =====================
-function removeOnAttributes($root) {
-  $root.find('*').each((_, el) => {
-    const attrs = el.attribs || {};
-    for (const k of Object.keys(attrs)) {
-      if (k.toLowerCase().startsWith('on')) delete el.attribs[k];
-    }
-  });
-}
-
+// -------------------- Helpers --------------------
 function absolutizeUrl(src, baseUrl) {
   try {
     if (!src) return src;
@@ -154,7 +131,16 @@ function absolutizeUrl(src, baseUrl) {
   }
 }
 
-// Proxy images (OCR + CORS)
+function removeOnAttributes($root) {
+  $root.find('*').each((_, el) => {
+    const attrs = el.attribs || {};
+    for (const k of Object.keys(attrs)) {
+      if (k.toLowerCase().startsWith('on')) delete el.attribs[k];
+    }
+  });
+}
+
+// -------------------- Image proxy (for OCR + CORS) --------------------
 app.get('/api/image', async (req, res) => {
   try {
     const url = String(req.query.url || '').trim();
@@ -176,45 +162,36 @@ app.get('/api/image', async (req, res) => {
   }
 });
 
-// ===================== Translate URL =====================
+// -------------------- Translate URL (returns HTML) --------------------
 function pickMainScope($, url) {
   const host = (() => { try { return new URL(url).hostname; } catch { return ''; } })();
 
-  // Wikipedia
   if (host.includes('wikipedia.org')) {
     const w = $('#mw-content-text').first();
     if (w.length) return w;
   }
-  // W3Schools
   if (host.includes('w3schools.com')) {
     const w3 = $('.w3-main').first();
     if (w3.length) return w3;
   }
 
-  const candidates = ['article', 'main', '#main', '.w3-main', '#content', '.content', 'body'];
-  for (const sel of candidates) {
-    const $el = $(sel).first();
-    if ($el && $el.length) return $el;
+  for (const sel of ['article', 'main', '#content', '.content', 'body']) {
+    const el = $(sel).first();
+    if (el.length) return el;
   }
   return $('body');
 }
 
 function cleanupScope($scope) {
   $scope.find('script,style,noscript,iframe').remove();
-  $scope.find(
-    'nav,footer,header,aside,' +
-    '#leftmenu,#right,#sidemenu,#topnav,#nav,' +
-    '.sidebar,.side-bar,.nav,.navigation,.menu'
-  ).remove();
-
-  // Wikipedia cleanup
+  $scope.find('nav,footer,header,aside,#leftmenu,#sidemenu,#topnav,.sidebar,.menu,.navigation').remove();
   $scope.find('.reflist,.reference,.mw-references-wrap,ol.references,.navbox,.infobox').remove();
 }
 
 async function translateTextNodesCheerio($, $root, baseUrl) {
   const SKIP = new Set(['script', 'style', 'noscript', 'pre', 'code', 'kbd', 'samp', 'var']);
 
-  // images => abs + proxy + alt/title translate
+  // images: absolute + proxy + alt/title translate
   $root.find('img').each((_, el) => {
     const $img = $(el);
     const srcRaw = $img.attr('src') || $img.attr('data-src') || $img.attr('data-original');
@@ -227,7 +204,6 @@ async function translateTextNodesCheerio($, $root, baseUrl) {
     $img.attr('style', (String($img.attr('style') || '') + ';max-width:100%;height:auto;border-radius:12px;').trim());
   });
 
-  // collect unique text chunks (BIGGER LIMIT)
   const nodes = $root.find('*').addBack().contents();
   const uniq = new Set();
 
@@ -243,14 +219,13 @@ async function translateTextNodesCheerio($, $root, baseUrl) {
     const t = raw.replace(/\s+/g, ' ').trim();
     if (!t) return;
 
-    // не переводим очевидный код
+    // не трогаем явный код
     if (/[{}()[\];<>]|=>|::|->|==|!=|===/.test(t)) return;
 
     uniq.add(t);
   });
 
-  const list = Array.from(uniq).slice(0, 8000);
-
+  const list = Array.from(uniq).slice(0, 5000);
   const map = new Map();
   const CONCURRENCY = 6;
 
@@ -263,7 +238,6 @@ async function translateTextNodesCheerio($, $root, baseUrl) {
     results.forEach(([k, v]) => map.set(k, v));
   }
 
-  // apply translations back to DOM
   nodes.each((_, node) => {
     if (node.type !== 'text') return;
 
@@ -281,7 +255,6 @@ async function translateTextNodesCheerio($, $root, baseUrl) {
     node.data = lead + map.get(t) + trail;
   });
 
-  // translate img alt/title last (с защитой кодовых слов тоже)
   const imgs = $root.find('img');
   for (let i = 0; i < imgs.length; i++) {
     const $img = $(imgs[i]);
@@ -315,7 +288,6 @@ app.post('/api/translate-url', async (req, res) => {
 
     const $out = $('<div class="translated-article"></div>');
 
-    // ВАЖНО: добавили h5/h6 + полезные div классы (часто у W3Schools)
     const selector =
       'h1,h2,h3,h4,h5,h6,p,ul,ol,li,pre,blockquote,figure,img,figcaption,' +
       'div.w3-panel,div.w3-note,div.w3-example,div.w3-info,div.w3-warning';
@@ -338,7 +310,6 @@ app.post('/api/translate-url', async (req, res) => {
       if (tag === 'p' || tag === 'li' || tag === 'div') {
         const t = $el.text().replace(/\s+/g, ' ').trim();
         if (!t) continue;
-        // маленькие div не берём, чтобы не тащить меню/кнопки
         if (tag === 'div' && t.length < 30) continue;
         charBudget += t.length;
       }
@@ -363,7 +334,7 @@ app.post('/api/translate-url', async (req, res) => {
   }
 });
 
-// translate-text (для OCR/вкладки Текст)
+// translate-text for OCR / text tab
 app.post('/api/translate-text', async (req, res) => {
   try {
     const { text, from = 'en', to = 'ru' } = req.body || {};
@@ -374,46 +345,7 @@ app.post('/api/translate-text', async (req, res) => {
   }
 });
 
-// word (локальный словарь)
-app.post('/api/translate-word', (req, res) => {
-  try {
-    const { word, direction } = req.body || {};
-    if (!word) return res.status(400).json({ success: false, error: 'Слово не предоставлено' });
-    const t = translator.translateWord(word, direction);
-    res.json({ success: !!t, translation: t || 'Не найдено' });
-  } catch (e) {
-    res.status(500).json({ success: false, error: `Ошибка: ${e.message || 'unknown'}` });
-  }
-});
-
-// ===================== Weather current + 3 days =====================
-const conditionMapRu = {
-  'Heavy snow': 'Сильный снегопад',
-  'Moderate snow': 'Умеренный снег',
-  'Light snow': 'Небольшой снег',
-  'Snow': 'Снег',
-  'Snow shower': 'Снегопад',
-  'Light snow showers': 'Небольшие снегопады',
-  'Heavy snow showers': 'Сильные снегопады',
-  'Blizzard': 'Метель',
-  'Heavy rain': 'Сильный дождь',
-  'Light rain': 'Небольшой дождь',
-  'Rain': 'Дождь',
-  'Partly cloudy': 'Переменная облачность',
-  'Cloudy': 'Облачно',
-  'Overcast': 'Пасмурно',
-  'Mist': 'Туман',
-  'Fog': 'Туман'
-};
-
-async function normalizeWeatherDesc(desc) {
-  const d = String(desc || '').trim();
-  if (!d) return '—';
-  if (hasCyrillic(d)) return d;
-  if (conditionMapRu[d]) return conditionMapRu[d];
-  return toRuIfNeeded(d);
-}
-
+// weather (как у тебя было можно оставить/доработать позже)
 app.get('/api/weather', async (req, res) => {
   try {
     const city = String(req.query.city || 'Moscow');
@@ -425,33 +357,21 @@ app.get('/api/weather', async (req, res) => {
     const current = data?.current_condition?.[0];
     const area = data?.nearest_area?.[0];
 
-    const currentDescRaw =
+    const desc =
       current?.lang_ru?.[0]?.value ||
       current?.weatherDesc?.[0]?.value ||
       '—';
 
     const forecast = (data?.weather || []).slice(0, 3).map((d) => {
       const mid = (d.hourly || []).find(h => String(h.time) === '1200') || (d.hourly || [])[0] || null;
-      const raw =
-        mid?.lang_ru?.[0]?.value ||
-        mid?.weatherDesc?.[0]?.value ||
-        '—';
-
+      const raw = mid?.lang_ru?.[0]?.value || mid?.weatherDesc?.[0]?.value || '—';
       return { date: d.date, minC: d.mintempC, maxC: d.maxtempC, desc: raw };
     });
-
-    for (const f of forecast) f.desc = await normalizeWeatherDesc(f.desc);
 
     res.json({
       success: true,
       location: area?.areaName?.[0]?.value || city,
-      country: area?.country?.[0]?.value || '',
-      current: {
-        tempC: current?.temp_C,
-        humidity: current?.humidity,
-        windKmph: current?.windspeedKmph,
-        desc: await normalizeWeatherDesc(currentDescRaw)
-      },
+      current: { tempC: current?.temp_C, humidity: current?.humidity, windKmph: current?.windspeedKmph, desc },
       forecast
     });
   } catch (e) {
@@ -459,7 +379,7 @@ app.get('/api/weather', async (req, res) => {
   }
 });
 
-// ===================== Articles (translate card titles) =====================
+// articles (переводим заголовки карточек)
 const ARTICLES = {
   programming: [
     { title: 'JavaScript Tutorial (W3Schools)', url: 'https://www.w3schools.com/js/' },
@@ -467,11 +387,7 @@ const ARTICLES = {
     { title: 'HTML Tutorial (W3Schools)', url: 'https://www.w3schools.com/html/' },
     { title: 'CSS Tutorial (W3Schools)', url: 'https://www.w3schools.com/css/' },
     { title: 'React Docs', url: 'https://react.dev/' },
-    { title: 'Node.js Docs', url: 'https://nodejs.org/en/docs/' },
-    { title: 'MDN JavaScript Guide', url: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide' },
-    { title: 'MDN CSS', url: 'https://developer.mozilla.org/en-US/docs/Web/CSS' },
-    { title: 'Git Handbook', url: 'https://guides.github.com/introduction/git-handbook/' },
-    { title: 'HTTP overview (MDN)', url: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Overview' }
+    { title: 'Node.js Docs', url: 'https://nodejs.org/en/docs/' }
   ],
   history: [
     { title: 'Ancient Rome', url: 'https://en.wikipedia.org/wiki/Ancient_Rome' },
@@ -479,26 +395,17 @@ const ARTICLES = {
     { title: 'Renaissance', url: 'https://en.wikipedia.org/wiki/Renaissance' },
     { title: 'French Revolution', url: 'https://en.wikipedia.org/wiki/French_Revolution' },
     { title: 'World War I', url: 'https://en.wikipedia.org/wiki/World_War_I' },
-    { title: 'World War II', url: 'https://en.wikipedia.org/wiki/World_War_II' },
-    { title: 'Industrial Revolution', url: 'https://en.wikipedia.org/wiki/Industrial_Revolution' },
-    { title: 'History of China', url: 'https://en.wikipedia.org/wiki/History_of_China' }
+    { title: 'World War II', url: 'https://en.wikipedia.org/wiki/World_War_II' }
   ],
   games: [
-    { title: 'Video game (Wikipedia)', url: 'https://en.wikipedia.org/wiki/Video_game' },
-    { title: 'Game design (Wikipedia)', url: 'https://en.wikipedia.org/wiki/Game_design' },
-    { title: 'Game Programming Patterns', url: 'https://gameprogrammingpatterns.com/' },
-    { title: 'Unity Manual', url: 'https://docs.unity3d.com/Manual/index.html' },
-    { title: 'Unreal Engine', url: 'https://www.unrealengine.com/' },
-    { title: 'Esports (Wikipedia)', url: 'https://en.wikipedia.org/wiki/Esports' },
-    { title: 'Level design', url: 'https://en.wikipedia.org/wiki/Level_design' }
+    { title: 'Video game', url: 'https://en.wikipedia.org/wiki/Video_game' },
+    { title: 'Game design', url: 'https://en.wikipedia.org/wiki/Game_design' },
+    { title: 'Game Programming Patterns', url: 'https://gameprogrammingpatterns.com/' }
   ],
   cinema: [
     { title: 'History of film', url: 'https://en.wikipedia.org/wiki/History_of_film' },
     { title: 'Cinematography', url: 'https://en.wikipedia.org/wiki/Cinematography' },
-    { title: 'Film directing', url: 'https://en.wikipedia.org/wiki/Film_directing' },
-    { title: 'Screenwriting', url: 'https://en.wikipedia.org/wiki/Screenwriting' },
-    { title: 'Animation', url: 'https://en.wikipedia.org/wiki/Animation' },
-    { title: 'Film editing', url: 'https://en.wikipedia.org/wiki/Film_editing' }
+    { title: 'Film directing', url: 'https://en.wikipedia.org/wiki/Film_directing' }
   ]
 };
 
@@ -510,11 +417,9 @@ app.get('/api/articles/:category', async (req, res) => {
     const list = ARTICLES[category] || [];
 
     const out = await Promise.all(list.map(async (a) => {
-      const key = a.title;
-      if (articleTitleCache.has(key)) return { ...a, title: articleTitleCache.get(key) };
-
+      if (articleTitleCache.has(a.title)) return { ...a, title: articleTitleCache.get(a.title) };
       const tr = await toRuIfNeeded(a.title);
-      articleTitleCache.set(key, tr);
+      articleTitleCache.set(a.title, tr);
       return { ...a, title: tr };
     }));
 
@@ -525,6 +430,9 @@ app.get('/api/articles/:category', async (req, res) => {
 });
 
 app.get('/api/health', (req, res) => res.json({ success: true }));
+
+// routes: cards page and translate page
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('/translate', (req, res) => res.sendFile(path.join(__dirname, 'public', 'translate.html')));
 
 app.listen(PORT, () => console.log(`✅ Server on :${PORT}`));
