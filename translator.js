@@ -1,4 +1,3 @@
-// translator.js
 const dictionary = {
   hello: 'привет',
   world: 'мир',
@@ -27,9 +26,10 @@ function translateWord(word, direction = 'en-ru') {
 
 function translateText(text) {
   if (!text || typeof text !== 'string') return text;
-  let result = text;
 
+  let result = text;
   const entries = Object.entries(dictionary).sort((a, b) => b[0].length - a[0].length);
+
   for (const [en, ru] of entries) {
     const regex = new RegExp(`\\b${en}\\b`, 'gi');
     result = result.replace(regex, (m) => (m[0] === m[0].toUpperCase() ? ru[0].toUpperCase() + ru.slice(1) : ru));
