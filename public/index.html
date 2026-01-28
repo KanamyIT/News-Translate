@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>News/Translate by Kanamy</title>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -19,13 +19,7 @@
       --accent-blue:#4a90e2;
       --border:#ddd;
     }
-    body{
-      font-family:'Poppins',sans-serif;
-      background:var(--primary-white);
-      color:var(--text-dark);
-      transition:.25s;
-      overflow-x:hidden;
-    }
+    body{font-family:'Poppins',sans-serif;background:var(--primary-white);color:var(--text-dark);transition:.25s;overflow-x:hidden}
     body.dark-mode{background:var(--primary-dark);color:var(--text-light);--border:#444}
 
     .header{
@@ -74,11 +68,13 @@
     }
     body.dark-mode .input-field{background:var(--primary-dark);color:var(--text-light);border-color:var(--border)}
     .input-field:focus{border-color:var(--primary-orange)}
+
     .btn{
       padding:14px 18px;border:none;border-radius:12px;background:var(--primary-orange);
       color:#fff;font-weight:900;cursor:pointer;display:flex;gap:8px;align-items:center;white-space:nowrap;
     }
     .btn:hover{background:#ff5a1f}
+    .btn:disabled{background:#bbb;cursor:not-allowed}
 
     .category-buttons{
       display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
@@ -92,28 +88,26 @@
     body.dark-mode .category-btn{background:var(--primary-dark)}
     .category-btn:hover{background:var(--primary-orange);color:#fff}
 
-    .content-area{
-      display:grid;grid-template-columns: 1fr 320px;
-      gap:18px;margin-top:10px;
-    }
+    .content-area{display:grid;grid-template-columns: 1fr 320px;gap:18px;margin-top:10px}
     @media (max-width: 900px){.content-area{grid-template-columns:1fr}}
 
     .block-title{font-size:16px;font-weight:900;margin:6px 0 12px;color:var(--primary-orange)}
 
-    /* Горизонтальные статьи */
-    .articles-row{
-      display:flex;gap:14px;overflow:auto;padding-bottom:6px;
-      scroll-snap-type:x mandatory;
+    /* ✅ ВАЖНО: статьи теперь НЕ скроллятся горизонтально, а уходят вниз */
+    .articles-grid{
+      display:grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap:14px;
+      margin-bottom:14px;
     }
     .article-card{
-      flex:0 0 300px;
-      scroll-snap-align:start;
       border:2px solid var(--border);
       border-radius:16px;
       padding:16px;
       background:#fff;
       cursor:pointer;
       transition:.2s;
+      min-height:110px;
     }
     body.dark-mode .article-card{background:var(--primary-dark);border-color:var(--border)}
     .article-card:hover{
@@ -148,11 +142,7 @@
     .audio-player button:hover{background:#ff5a1f}
 
     .loading{display:flex;gap:12px;align-items:center;justify-content:center;padding:46px;color:var(--primary-orange);font-weight:900}
-    .spinner{
-      width:40px;height:40px;border-radius:50%;
-      border:4px solid #f3f3f3;border-top:4px solid var(--primary-orange);
-      animation:spin 1s linear infinite;
-    }
+    .spinner{width:40px;height:40px;border-radius:50%;border:4px solid #f3f3f3;border-top:4px solid var(--primary-orange);animation:spin 1s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
 
     .fun-facts{
@@ -184,9 +174,7 @@
 <body>
   <div class="header">
     <div class="logo">News/Translate <span>by Kanamy</span></div>
-    <button class="theme-toggle" onclick="toggleTheme()">
-      <i class="fas fa-moon"></i> Тема
-    </button>
+    <button class="theme-toggle" onclick="toggleTheme()"><i class="fas fa-moon"></i> Тема</button>
   </div>
 
   <div class="container">
@@ -217,17 +205,12 @@
         <div class="content-area">
           <div>
             <div class="block-title">Статьи (нажми — вставится ссылка и переведётся)</div>
-            <div class="articles-row" id="articlesRow">
+            <div class="articles-grid" id="articlesGrid">
               <div style="opacity:.75;font-size:14px;padding:8px 2px">Выбери категорию выше</div>
             </div>
 
-            <div style="height:14px"></div>
-
             <div id="contentArea">
-              <div class="loading">
-                <div class="spinner"></div>
-                Вставь ссылку или выбери статью
-              </div>
+              <div class="loading"><div class="spinner"></div> Вставь ссылку или выбери статью</div>
             </div>
           </div>
 
@@ -285,6 +268,7 @@
           </div>
         </div>
       </div>
+
     </div>
   </div>
 
@@ -339,10 +323,7 @@
 
   function showLoading(){
     document.getElementById('contentArea').innerHTML = `
-      <div class="loading">
-        <div class="spinner"></div>
-        Загружаем и переводим...
-      </div>
+      <div class="loading"><div class="spinner"></div> Загружаем и переводим...</div>
     `;
   }
 
@@ -365,7 +346,6 @@
     }catch{}
   }
 
-  // ✅ Перевод теперь идёт через наш сервер, без allorigins
   async function translateUrl(){
     const url = document.getElementById('urlInput').value.trim();
     if (!url) return alert('Введите URL');
@@ -389,7 +369,6 @@
         </div>
         <div class="translated-content">${data.contentHtml}</div>
       `;
-
       speak(data.title);
     }catch(e){
       showError(e.message || 'Ошибка сети');
@@ -404,7 +383,7 @@
       const r = await fetch('/api/translate-text', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ text })
+        body: JSON.stringify({ text, from:'en', to:'ru' })
       });
       const data = await r.json();
       if (!data.success) return alert(data.error || 'Ошибка');
@@ -441,8 +420,8 @@
   }
 
   async function loadCategory(category){
-    const row = document.getElementById('articlesRow');
-    row.innerHTML = `<div style="opacity:.75;font-size:14px;padding:8px 2px">Загрузка статей...</div>`;
+    const grid = document.getElementById('articlesGrid');
+    grid.innerHTML = `<div style="opacity:.75;font-size:14px;padding:8px 2px">Загрузка статей...</div>`;
 
     try{
       const r = await fetch('/api/articles/' + category);
@@ -450,11 +429,11 @@
       const list = data.articles || [];
 
       if (!list.length){
-        row.innerHTML = `<div style="opacity:.75;font-size:14px;padding:8px 2px">Нет статей</div>`;
+        grid.innerHTML = `<div style="opacity:.75;font-size:14px;padding:8px 2px">Нет статей</div>`;
         return;
       }
 
-      row.innerHTML = list.map(a => `
+      grid.innerHTML = list.map(a => `
         <div class="article-card" onclick="loadArticle(${JSON.stringify(a.url)})">
           <h4>${escapeHtml(a.title)}</h4>
           <div class="meta">${escapeHtml(category)} • нажми чтобы открыть</div>
@@ -462,7 +441,7 @@
         </div>
       `).join('');
     }catch(e){
-      row.innerHTML = `<div style="opacity:.75;font-size:14px;padding:8px 2px">Ошибка: ${escapeHtml(e.message || '')}</div>`;
+      grid.innerHTML = `<div style="opacity:.75;font-size:14px;padding:8px 2px">Ошибка: ${escapeHtml(e.message || '')}</div>`;
     }
   }
 
@@ -476,7 +455,6 @@
     await updateWeatherInto('weatherInfoTab');
   }
 
-  // ✅ Погода теперь тоже через сервер (/api/weather), а не напрямую к wttr.in
   async function updateWeatherInto(elementId){
     const el = document.getElementById(elementId);
     if (!el) return;
