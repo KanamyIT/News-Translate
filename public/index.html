@@ -4,7 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>News/Translate by Kanamy</title>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Шрифт плотнее/полужирнее -->
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css" />
 </head>
@@ -25,6 +28,7 @@
         <button class="tab-btn" data-tab="weather"><i class="fas fa-cloud-sun"></i> Погода</button>
       </div>
 
+      <!-- URL TAB -->
       <div id="url-tab" class="tab-content">
         <div class="input-row">
           <input id="urlInput" class="input" placeholder="https://example.com" />
@@ -65,12 +69,14 @@
         </div>
       </div>
 
+      <!-- TEXT TAB -->
       <div id="text-tab" class="tab-content hidden">
         <textarea id="textInput" class="input textarea" placeholder="Введите текст..."></textarea>
         <button id="translateTextBtn" class="btn wide"><i class="fas fa-language"></i> Перевести текст</button>
         <div id="textResult" class="result hidden"></div>
       </div>
 
+      <!-- WORD TAB -->
       <div id="word-tab" class="tab-content hidden">
         <div class="word-grid">
           <div>
@@ -86,6 +92,7 @@
         </div>
       </div>
 
+      <!-- WEATHER TAB -->
       <div id="weather-tab" class="tab-content hidden">
         <div class="weather big">
           <div class="weather-title"><i class="fas fa-map-marker-alt"></i> Погода в Москве</div>
@@ -97,6 +104,7 @@
     </section>
   </main>
 
-  <script src="/app.js"></script>
+  <!-- defer + cache-busting -->
+  <script src="/app.js?v=3" defer></script>
 </body>
 </html>
