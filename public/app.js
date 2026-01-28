@@ -1,5 +1,4 @@
 (() => {
-  // -------------------- Config --------------------
   const CAT_RU = {
     programming: 'программирование',
     history: 'история',
@@ -15,7 +14,6 @@
     "HTML начинался с очень маленького набора тегов!"
   ];
 
-  // -------------------- Helpers --------------------
   const byId = (id) => (id && typeof id === 'string' ? document.getElementById(id) : null);
 
   function escapeHtml(str) {
@@ -32,16 +30,6 @@
     return await r.json();
   }
 
-  function speak(text) {
-    try {
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(String(text || ''));
-      u.lang = 'ru-RU';
-      u.rate = 0.95;
-      window.speechSynthesis.speak(u);
-    } catch {}
-  }
-
   function setTheme(dark) {
     document.body.classList.toggle('dark', !!dark);
     localStorage.setItem('theme', dark ? 'dark' : 'light');
@@ -53,20 +41,6 @@
     el.textContent = FUN_FACTS[Math.floor(Math.random() * FUN_FACTS.length)];
   }
 
-  // -------------------- UI: tabs --------------------
-  function switchTab(tab) {
-    if (!tab) return;
-
-    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-    byId(`${tab}-tab`)?.classList.remove('hidden');
-
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelector(`.tab-btn[data-tab="${tab}"]`)?.classList.add('active');
-
-    if (tab === 'weather') updateWeatherAll();
-  }
-
-  // -------------------- UI: content area --------------------
   function showLoading() {
     const area = byId('contentArea');
     if (!area) return;
@@ -84,147 +58,17 @@
     `;
   }
 
-  // -------------------- Articles --------------------
-  async function loadCategory(category) {
-    const grid = byId('articlesGrid');
-    if (!grid) return;
-
-    grid.innerHTML = `<div class="muted">Загрузка статей...</div>`;
-
+  function speak(text) {
     try {
-      const data = await apiJson(`/api/articles/${encodeURIComponent(category)}`);
-      const list = data.articles || [];
-
-      if (!list.length) {
-        grid.innerHTML = `<div class="muted">Нет статей</div>`;
-        return;
-      }
-
-      const catLabel = CAT_RU[category] || category;
-
-      grid.innerHTML = list.map(a => `
-        <div class="article" data-url="${escapeHtml(a.url)}">
-          <h4>${escapeHtml(a.title)}</h4>
-          <div class="muted">${escapeHtml(catLabel)} • нажми чтобы открыть</div>
-          <div class="muted" style="margin-top:8px">${escapeHtml(a.url)}</div>
-        </div>
-      `).join('');
-
-      grid.querySelectorAll('.article').forEach(card => {
-        card.addEventListener('click', () => {
-          const input = byId('urlInput');
-          if (input) input.value = card.dataset.url || '';
-          translateUrl();
-        });
-      });
-    } catch (e) {
-      grid.innerHTML = `<div class="muted">Ошибка: ${escapeHtml(e?.message || 'network')}</div>`;
-    }
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(String(text || ''));
+      u.lang = 'ru-RU';
+      u.rate = 0.95;
+      window.speechSynthesis.speak(u);
+    } catch {}
   }
 
-  // -------------------- Translate URL --------------------
-  let translateUrlAbort = null;
-
-  async function translateUrl() {
-    const input = byId('urlInput');
-    const url = (input?.value || '').trim();
-    if (!url) return alert('Введите URL');
-
-    // отменяем предыдущий запрос (если пользователь кликает быстро)
-    try { translateUrlAbort?.abort(); } catch {}
-    translateUrlAbort = new AbortController();
-
-    showLoading();
-
-    try {
-      const r = await fetch('/api/translate-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
-        signal: translateUrlAbort.signal
-      });
-
-      const data = await r.json();
-      if (!data.success) return showError(data.error || 'Не удалось перевести');
-
-      const area = byId('contentArea');
-      if (!area) return;
-
-      area.innerHTML = `
-        <div class="translated-toolbar">
-          <button class="small-btn" id="speakBtn"><i class="fas fa-volume-up"></i> Озвучить</button>
-          <button class="small-btn" id="ocrBtn"><i class="fas fa-eye"></i> OCR: перевести текст на картинках</button>
-        </div>
-        <div class="result translated">
-          <h2 style="color:var(--orange);margin-bottom:10px">${escapeHtml(data.title || 'Статья')}</h2>
-          ${data.contentHtml || '<p>Пусто</p>'}
-        </div>
-      `;
-
-      byId('speakBtn')?.addEventListener('click', () => speak(data.title || ''));
-      byId('ocrBtn')?.addEventListener('click', () => ocrTranslateImages());
-
-      speak(data.title || '');
-    } catch (e) {
-      if (e?.name === 'AbortError') return;
-      showError(e?.message || 'Ошибка сети');
-    }
-  }
-
-  // -------------------- Translate Text tab --------------------
-  async function translateText() {
-    const text = (byId('textInput')?.value || '').trim();
-    if (!text) return alert('Введите текст');
-
-    try {
-      const data = await apiJson('/api/translate-text', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, from: 'en', to: 'ru' })
-      });
-
-      if (!data.success) return alert(data.error || 'Ошибка');
-
-      const box = byId('textResult');
-      if (!box) return;
-
-      box.classList.remove('hidden');
-      box.innerHTML = `
-        <h3 style="color:var(--orange);margin-bottom:10px">Перевод</h3>
-        <p>${escapeHtml(data.translated || '')}</p>
-      `;
-      speak(data.translated || '');
-    } catch (e) {
-      alert(e?.message || 'Ошибка');
-    }
-  }
-
-  // -------------------- Translate Word tab --------------------
-  let wordTimerEn = null;
-  let wordTimerRu = null;
-
-  async function translateWord(word, direction, outEl) {
-    const w = String(word || '').trim();
-    if (!w) { outEl?.classList.add('hidden'); return; }
-
-    try {
-      const data = await apiJson('/api/translate-word', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ word: w, direction })
-      });
-
-      if (!outEl) return;
-      outEl.classList.remove('hidden');
-      outEl.textContent = data.success ? (data.translation || '') : 'Не найдено';
-    } catch {
-      if (!outEl) return;
-      outEl.classList.remove('hidden');
-      outEl.textContent = 'Ошибка';
-    }
-  }
-
-  // -------------------- Weather --------------------
+  // ---------- Weather ----------
   function renderForecast(list) {
     if (!Array.isArray(list) || !list.length) return '';
     return list.map(d => `
@@ -267,7 +111,92 @@
     await updateWeatherInto('weatherNowTab', 'weatherForecastTab');
   }
 
-  // -------------------- OCR (optional) --------------------
+  // ---------- Cards page ----------
+  async function loadCategory(category) {
+    const grid = byId('articlesGrid');
+    if (!grid) return;
+
+    grid.innerHTML = `<div class="muted">Загрузка статей...</div>`;
+
+    try {
+      const data = await apiJson(`/api/articles/${encodeURIComponent(category)}`);
+      const list = data.articles || [];
+
+      if (!list.length) {
+        grid.innerHTML = `<div class="muted">Нет статей</div>`;
+        return;
+      }
+
+      const catLabel = CAT_RU[category] || category;
+
+      grid.innerHTML = list.map(a => `
+        <div class="article" data-url="${escapeHtml(a.url)}">
+          <h4>${escapeHtml(a.title)}</h4>
+          <div class="muted">${escapeHtml(catLabel)} • нажми чтобы открыть</div>
+          <div class="muted" style="margin-top:8px">${escapeHtml(a.url)}</div>
+        </div>
+      `).join('');
+
+      // 1 клик -> сразу на страницу перевода
+      grid.querySelectorAll('.article').forEach(card => {
+        card.addEventListener('click', () => {
+          const url = card.dataset.url || '';
+          window.location.href = `/translate?url=${encodeURIComponent(url)}`;
+        });
+      });
+    } catch (e) {
+      grid.innerHTML = `<div class="muted">Ошибка: ${escapeHtml(e?.message || 'network')}</div>`;
+    }
+  }
+
+  // ---------- Translate page ----------
+  let translateAbort = null;
+
+  async function translateUrl() {
+    const input = byId('urlInput');
+    const url = (input?.value || '').trim();
+    if (!url) return alert('Введите URL');
+
+    try { translateAbort?.abort(); } catch {}
+    translateAbort = new AbortController();
+
+    showLoading();
+
+    try {
+      const r = await fetch('/api/translate-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+        signal: translateAbort.signal
+      });
+
+      const data = await r.json();
+      if (!data.success) return showError(data.error || 'Не удалось перевести');
+
+      const area = byId('contentArea');
+      if (!area) return;
+
+      area.innerHTML = `
+        <div class="translated-toolbar">
+          <button class="small-btn" id="speakBtn"><i class="fas fa-volume-up"></i> Озвучить</button>
+          <button class="small-btn" id="ocrBtn"><i class="fas fa-eye"></i> OCR: перевести текст на картинках</button>
+        </div>
+        <div class="result translated">
+          <h2 style="color:var(--orange);margin-bottom:10px">${escapeHtml(data.title || 'Статья')}</h2>
+          ${data.contentHtml || '<p>Пусто</p>'}
+        </div>
+      `;
+
+      byId('speakBtn')?.addEventListener('click', () => speak(data.title || ''));
+      byId('ocrBtn')?.addEventListener('click', () => ocrTranslateImages());
+      speak(data.title || '');
+    } catch (e) {
+      if (e?.name === 'AbortError') return;
+      showError(e?.message || 'Ошибка сети');
+    }
+  }
+
+  // ---------- OCR (optional) ----------
   let tesseractLoading = null;
 
   function loadTesseract() {
@@ -335,53 +264,39 @@
     }
   }
 
-  // -------------------- Init --------------------
+  // ---------- Init ----------
   document.addEventListener('DOMContentLoaded', () => {
     // theme
     setTheme(localStorage.getItem('theme') === 'dark');
     byId('themeBtn')?.addEventListener('click', () => setTheme(!document.body.classList.contains('dark')));
 
-    // tabs
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        switchTab(btn.dataset.tab || '');
+    // font (если ты не менял styles.css)
+    document.body.style.fontFamily = `"Manrope", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif`;
+
+    // page routing
+    const page = document.body.dataset.page;
+
+    if (page === 'cards') {
+      setFact();
+      setInterval(setFact, 15000);
+      updateWeatherInto('weatherNow', 'weatherForecast');
+
+      document.querySelectorAll('.cat-btn').forEach(btn => {
+        btn.addEventListener('click', () => loadCategory(btn.dataset.cat || ''));
       });
-    });
+    }
 
-    // categories
-    document.querySelectorAll('.cat-btn').forEach(btn => {
-      btn.addEventListener('click', () => loadCategory(btn.dataset.cat || ''));
-    });
+    if (page === 'translate') {
+      // автоперевод при заходе по /translate?url=...
+      const params = new URLSearchParams(window.location.search);
+      const url = params.get('url') || '';
+      const input = byId('urlInput');
+      if (input) input.value = url;
 
-    // actions
-    byId('translateUrlBtn')?.addEventListener('click', translateUrl);
-    byId('translateTextBtn')?.addEventListener('click', translateText);
+      byId('translateUrlBtn')?.addEventListener('click', translateUrl);
+      byId('urlInput')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') translateUrl(); });
 
-    // UX: Enter to translate URL
-    byId('urlInput')?.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') translateUrl();
-    });
-
-    // word inputs (debounce 250ms)
-    const en = byId('wordEn');
-    const ru = byId('wordRu');
-    const outEn = byId('wordResEn');
-    const outRu = byId('wordResRu');
-
-    en?.addEventListener('input', () => {
-      clearTimeout(wordTimerEn);
-      wordTimerEn = setTimeout(() => translateWord(en.value, 'en-ru', outEn), 250);
-    });
-
-    ru?.addEventListener('input', () => {
-      clearTimeout(wordTimerRu);
-      wordTimerRu = setTimeout(() => translateWord(ru.value, 'ru-en', outRu), 250);
-    });
-
-    // start
-    setFact();
-    setInterval(setFact, 15000);
-    updateWeatherAll();
+      if (url) translateUrl();
+    }
   });
 })();
