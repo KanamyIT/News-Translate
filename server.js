@@ -90,7 +90,8 @@ async function myMemoryTranslate(text, from = 'en', to = 'ru') {
       const { data } = await axios.get(url, {
         timeout: 25000,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36'
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36'
         }
       });
 
@@ -274,7 +275,7 @@ function cleanupScope($scope) {
   $scope.find('.reflist,.reference,.mw-references-wrap,ol.references,.navbox,.infobox').remove();
 }
 
-async function translateTextNodesCheerio($, $root, baseUrl, from, to) {
+async function translateTextNodesCheerio($, $root, baseUrl, from = 'en', to = 'ru') {
   const SKIP = new Set(['script', 'style', 'noscript', 'pre', 'code', 'kbd', 'samp', 'var']);
 
   // Images -> proxy
@@ -282,15 +283,13 @@ async function translateTextNodesCheerio($, $root, baseUrl, from, to) {
     const $img = $(el);
     const srcRaw = $img.attr('src') || $img.attr('data-src') || $img.attr('data-original');
     const abs = absolutizeUrl(srcRaw, baseUrl);
-    if (abs && /^https?:\/\//i.test(abs)) {
-      $img.attr('src', `/api/image?url=${encodeURIComponent(abs)}`);
-    } else {
-      $img.attr('src', abs || '');
-    }
+    if (abs && /^https?:\/\//i.test(abs)) $img.attr('src', `/api/image?url=${encodeURIComponent(abs)}`);
+    else $img.attr('src', abs || '');
     $img.attr('loading', 'lazy');
     $img.attr('style', (String($img.attr('style') || '') + ';max-width:100%;height:auto;border-radius:12px;').trim());
   });
 
+  // 1) Collect segments
   const nodes = $root.find('*').addBack().contents();
   const uniq = new Set();
 
@@ -308,7 +307,7 @@ async function translateTextNodesCheerio($, $root, baseUrl, from, to) {
     if (/[{};<>]|=>|::|->|===|!==/.test(t)) return;
     if (t.length < 3) return;
 
-    // Only collect what we intend to translate
+    // Only collect what we intend to translate (direction-aware)
     if (from === 'en' && to === 'ru' && !looksEnglish(t)) return;
     if (from === 'ru' && to === 'en' && !hasCyrillic(t)) return;
 
@@ -318,10 +317,12 @@ async function translateTextNodesCheerio($, $root, baseUrl, from, to) {
   const list = Array.from(uniq).slice(0, 700);
   const map = new Map();
 
+  // 2) Translate segments
   for (const t of list) {
     map.set(t, await translateSmart(t, from, to));
   }
 
+  // 3) Put back translations
   nodes.each((_, node) => {
     if (node.type !== 'text') return;
     const parentTag = node.parent && node.parent.name ? String(node.parent.name).toLowerCase() : '';
@@ -338,7 +339,7 @@ async function translateTextNodesCheerio($, $root, baseUrl, from, to) {
     node.data = lead + map.get(t) + trail;
   });
 
-  // Translate alt/title too
+  // Translate alt/title too (direction-aware)
   const imgs = $root.find('img');
   for (let i = 0; i < imgs.length; i++) {
     const $img = $(imgs[i]);
@@ -358,7 +359,8 @@ app.post('/api/translate-url', async (req, res) => {
       timeout: 35000,
       maxContentLength: 6 * 1024 * 1024,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'ru-RU,ru;q=0.9,en;q=0.8',
         'Connection': 'keep-alive',
@@ -377,7 +379,7 @@ app.post('/api/translate-url', async (req, res) => {
     const $scope = pickMainScope($, url);
     cleanupScope($scope);
 
-    // ✅ FIX: real container
+    // ✅ CRITICAL: real container (в твоей старой версии было $('') и ничего не добавлялось)
     const $out = $('<div id="extracted"></div>');
 
     const selector =
@@ -424,11 +426,9 @@ app.post('/api/translate-url', async (req, res) => {
 
     await translateTextNodesCheerio($, $out, url, from, to);
 
-    const titleOut = await translateSmart(rawTitle, from, to);
-
     res.json({
       success: true,
-      title: titleOut,
+      title: await translateSmart(rawTitle, from, to),
       contentHtml: $out.html() || '\n\nНе удалось извлечь контент.',
       sourceUrl: url
     });
