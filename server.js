@@ -7,6 +7,7 @@ require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '0.0.0.0'; // ✅ ВАЖНО: 0.0.0.0 для Render!
 
 // ==================== MIDDLEWARE ====================
 app.use(cors({ origin: '*' }));
@@ -472,8 +473,9 @@ app.get('/translate', (req, res) => res.sendFile(path.join(__dirname, 'public', 
 // 404
 app.use((req, res) => res.status(404).json({ success: false, error: 'Endpoint не найден' }));
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`✅ Сервер запущен на http://localhost:${PORT}`);
-  console.log(`📡 API доступен на http://localhost:${PORT}/api`);
+// Start server - ✅ ИСПРАВЛЕНО: Слушаем на 0.0.0.0 вместо localhost
+app.listen(PORT, HOST, () => {
+  console.log(`✅ Сервер запущен на http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
+  console.log(`📡 API доступен на http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}/api`);
+  console.log(`🌐 Для Render.com: Слушаю на ${HOST}:${PORT}`);
 });
