@@ -15,141 +15,231 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const translator = require('./translator');
 
-function translateCheerioTextNodes($, $root) {
-  const SKIP = new Set(['script', 'style', 'noscript', 'pre', 'code', 'kbd', 'samp', 'var', 'input', 'textarea', 'button']);
+// -------------------- Translate (MyMemory) --------------------
+// MyMemory: GET https://api.mymemory.translated.net/get?q=...&langpair=en|ru [page:0]
+const translateCache = new Map(); // key -> translated
 
-  const nodes = $root.find('*').addBack().contents();
-  nodes.each((_, node) => {
-    if (node.type !== 'text') return;
+async function translateChunkMyMemory(text, from = 'en', to = 'ru') {
+  const clean = String(text || '').trim();
+  if (!clean) return clean;
 
-    const parentTag = (node.parent && node.parent.name ? String(node.parent.name).toLowerCase() : '');
-    if (SKIP.has(parentTag)) return;
+  const key = `${from}|${to}|${clean}`;
+  if (translateCache.has(key)) return translateCache.get(key);
 
-    const raw = node.data;
-    if (!raw || !raw.trim()) return;
+  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(clean)}&langpair=${from}|${to}`;
+  const { data } = await axios.get(url, { timeout: 20000 });
+  const translated = data?.responseData?.translatedText || clean;
 
-    node.data = translator.translateText(raw);
-  });
+  translateCache.set(key, translated);
+  return translated;
 }
 
-function buildCleanArticle($) {
-  $('script, style, noscript').remove();
+function splitByMaxLen(text, maxLen = 450) {
+  const s = String(text || '');
+  if (s.length <= maxLen) return [s];
 
-  const $scope =
-    $('article').first().length ? $('article').first() :
-    $('main').first().length ? $('main').first() :
-    $('body');
+  const parts = [];
+  let i = 0;
 
-  // убираем типичный мусор
-  $scope.find('nav, footer, header, aside').remove();
+  while (i < s.length) {
+    let end = Math.min(i + maxLen, s.length);
 
-  // собираем "нормальный" контент
-  const $wrap = $('<div></div>');
-  const sel = 'h1,h2,h3,p,ul,ol,li,pre,code,blockquote';
+    // пытаемся резать по пробелу, чтобы не ломать слова
+    const slice = s.slice(i, end);
+    const lastSpace = slice.lastIndexOf(' ');
+    if (lastSpace > 200) end = i + lastSpace;
 
-  $scope.find(sel).each((_, el) => {
-    const tag = (el.name || '').toLowerCase();
-    const text = $(el).text().trim();
+    parts.push(s.slice(i, end));
+    i = end;
+  }
+  return parts;
+}
 
-    // отсекаем совсем короткий мусор
-    if ((tag === 'p' || tag === 'li') && text.length < 20) return;
+async function translateLongText(text, from = 'en', to = 'ru') {
+  const chunks = splitByMaxLen(text, 450);
+  let out = '';
+  for (const ch of chunks) {
+    // MyMemory может капризничать на очень “кодовых” строках — оставим как есть
+    const translated = await translateChunkMyMemory(ch, from, to).catch(() => ch);
+    out += translated;
+  }
+  return out;
+}
 
-    $wrap.append($(el).clone());
+function pickMainScope($) {
+  const candidates = [
+    '#main',
+    '.w3-main',
+    'article',
+    'main',
+    '#content',
+    '.content',
+    'body'
+  ];
+
+  for (const sel of candidates) {
+    const $el = $(sel).first();
+    if ($el && $el.length) return $el;
+  }
+  return $('body');
+}
+
+function cleanupDom($scope) {
+  $scope.find('script,style,noscript').remove();
+
+  // типичные меню/сайдбары (особенно для w3schools)
+  $scope.find(
+    'nav,footer,header,aside,' +
+    '#leftmenu,#right,#sidemenu,#topnav,#nav,' +
+    '.sidebar,.side-bar,.nav,.navigation,.menu'
+  ).remove();
+}
+
+async function translateUrlToHtml(url) {
+  const response = await axios.get(url, {
+    timeout: 25000,
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Render; Node.js)',
+      'Accept-Language': 'ru,en;q=0.8'
+    }
   });
 
-  // fallback: если получилось пусто
-  if ($wrap.text().trim().length < 60) {
-    $wrap.empty();
-    $scope.find('p').each((_, el) => {
-      const text = $(el).text().trim();
-      if (text.length > 30) $wrap.append(`<p>${text}</p>`);
-    });
+  const $ = cheerio.load(response.data);
+
+  const rawTitle =
+    $('meta[property="og:title"]').attr('content') ||
+    $('h1').first().text().trim() ||
+    $('title').text().trim() ||
+    'Статья';
+
+  const $scope = pickMainScope($);
+  cleanupDom($scope);
+
+  // соберём блоки (ограничим, чтобы не переводить километры текста)
+  const blocks = [];
+  let totalChars = 0;
+
+  const MAX_BLOCKS = 80;
+  const MAX_CHARS = 20000;
+
+  $scope.find('h1,h2,h3,p,li,pre,blockquote').each((_, el) => {
+    if (blocks.length >= MAX_BLOCKS) return;
+
+    const $el = $(el);
+    const tag = (el.name || '').toLowerCase();
+
+    // пропускаем всё, что внутри <pre> (кроме самого pre)
+    if (tag !== 'pre' && $el.parents('pre').length) return;
+
+    if (tag === 'pre') {
+      const html = $el.toString();
+      blocks.push({ type: 'pre', html });
+      return;
+    }
+
+    let text = $el.text().replace(/\s+/g, ' ').trim();
+    if (!text) return;
+
+    // слишком короткие куски (меню/кнопки) — выкидываем
+    if ((tag === 'p' || tag === 'li') && text.length < 25) return;
+
+    totalChars += text.length;
+    if (totalChars > MAX_CHARS) return;
+
+    if (tag === 'li') text = `• ${text}`;
+
+    blocks.push({ type: tag, text });
+  });
+
+  const translatedTitle = await translateLongText(rawTitle, 'en', 'ru');
+
+  // переводим блоки
+  const htmlParts = [];
+  for (const b of blocks) {
+    if (b.type === 'pre') {
+      htmlParts.push(b.html);
+      continue;
+    }
+    const tr = await translateLongText(b.text, 'en', 'ru');
+
+    if (b.type === 'h1' || b.type === 'h2' || b.type === 'h3') htmlParts.push(`<${b.type}>${escapeHtml(tr)}</${b.type}>`);
+    else if (b.type === 'blockquote') htmlParts.push(`<blockquote>${escapeHtml(tr)}</blockquote>`);
+    else htmlParts.push(`<p>${escapeHtml(tr)}</p>`);
   }
 
-  return $wrap;
+  return { title: translatedTitle, contentHtml: htmlParts.join('\n') || '<p>Не удалось извлечь контент.</p>' };
 }
 
-// ====== API ======
+function escapeHtml(str) {
+  return String(str)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+// -------------------- API --------------------
 
 app.post('/api/translate-url', async (req, res) => {
   try {
     const { url } = req.body || {};
     if (!url) return res.status(400).json({ success: false, error: 'URL не предоставлен' });
 
-    const response = await axios.get(url, {
-      timeout: 20000,
-      headers: { 'User-Agent': 'Mozilla/5.0 (Render; Node.js)' }
-    });
-
-    const $ = cheerio.load(response.data);
-
-    const rawTitle =
-      $('h1').first().text().trim() ||
-      $('meta[property="og:title"]').attr('content') ||
-      $('title').text().trim() ||
-      'Статья';
-
-    const $article = buildCleanArticle($);
-
-    // переводим ТОЛЬКО текстовые узлы, не трогая code/pre
-    translateCheerioTextNodes($, $article);
-
-    res.json({
-      success: true,
-      title: translator.translateText(rawTitle),
-      contentHtml: $article.html() || '<p>Не удалось извлечь контент.</p>',
-      sourceUrl: url
-    });
-  } catch (err) {
-    res.status(500).json({
-      success: false,
-      error: `Ошибка при переводе: ${err.message || 'unknown'}`
-    });
+    const result = await translateUrlToHtml(url);
+    res.json({ success: true, title: result.title, contentHtml: result.contentHtml, sourceUrl: url });
+  } catch (e) {
+    res.status(500).json({ success: false, error: `Ошибка при переводе: ${e.message || 'unknown'}` });
   }
 });
 
-app.post('/api/translate-text', (req, res) => {
-  const { text } = req.body || {};
-  if (!text) return res.status(400).json({ success: false, error: 'Текст не предоставлен' });
+app.post('/api/translate-text', async (req, res) => {
+  try {
+    const { text, from = 'en', to = 'ru' } = req.body || {};
+    if (!text) return res.status(400).json({ success: false, error: 'Текст не предоставлен' });
 
-  res.json({ success: true, translated: translator.translateText(text) });
+    const translated = await translateLongText(text, from, to);
+    res.json({ success: true, translated });
+  } catch (e) {
+    res.status(500).json({ success: false, error: `Ошибка перевода: ${e.message || 'unknown'}` });
+  }
 });
 
 app.post('/api/translate-word', (req, res) => {
-  const { word, direction } = req.body || {};
-  if (!word) return res.status(400).json({ success: false, error: 'Слово не предоставлено' });
+  try {
+    const { word, direction } = req.body || {};
+    if (!word) return res.status(400).json({ success: false, error: 'Слово не предоставлено' });
 
-  const t = translator.translateWord(word, direction);
-  res.json({ success: !!t, translation: t || 'Не найдено' });
+    const t = translator.translateWord(word, direction);
+    res.json({ success: !!t, translation: t || 'Не найдено' });
+  } catch (e) {
+    res.status(500).json({ success: false, error: `Ошибка: ${e.message || 'unknown'}` });
+  }
 });
 
-// Погода: ТОЛЬКО через сервер (чтобы не ловить CORS на фронте)
+// wttr: можно задавать язык через ?lang=ru [page:1]
 app.get('/api/weather', async (req, res) => {
   try {
     const city = String(req.query.city || 'Moscow');
-    const { data } = await axios.get(`https://wttr.in/${encodeURIComponent(city)}?format=j1`, {
-      timeout: 10000,
-      headers: { 'User-Agent': 'Mozilla/5.0 (Render; Node.js)' }
+    const { data } = await axios.get(`https://wttr.in/${encodeURIComponent(city)}?format=j1&lang=ru`, {
+      timeout: 15000,
+      headers: { 'User-Agent': 'Mozilla/5.0 (Render; Node.js)', 'Accept-Language': 'ru' }
     });
 
-    // ВАЖНО: это массивы, поэтому [0]
-    const current = data.current_condition?.[0];
-    const area = data.nearest_area?.[0];
+    const current = data?.current_condition?.[0];
+    const area = data?.nearest_area?.[0];
 
     res.json({
       success: true,
       tempC: current?.temp_C,
-      desc: current?.lang_ru?.[0]?.value || current?.weatherDesc?.[0]?.value || '—',
+      desc: current?.weatherDesc?.[0]?.value || '—',
       humidity: current?.humidity,
       windKmph: current?.windspeedKmph,
       location: area?.areaName?.[0]?.value || city,
       country: area?.country?.[0]?.value || ''
     });
-  } catch (err) {
-    res.json({
-      success: false,
-      error: err.message || 'weather error'
-    });
+  } catch (e) {
+    res.json({ success: false, error: e.message || 'weather error' });
   }
 });
 
@@ -166,8 +256,7 @@ app.get('/api/articles/:category', (req, res) => {
     ],
     history: [
       { title: 'Древний Рим', url: 'https://en.wikipedia.org/wiki/Ancient_Rome' },
-      { title: 'Средние века', url: 'https://en.wikipedia.org/wiki/Middle_Ages' },
-      { title: 'Ренессанс', url: 'https://en.wikipedia.org/wiki/Renaissance' }
+      { title: 'Средние века', url: 'https://en.wikipedia.org/wiki/Middle_Ages' }
     ],
     games: [
       { title: 'История видеоигр', url: 'https://en.wikipedia.org/wiki/Video_game' },
@@ -184,8 +273,6 @@ app.get('/api/articles/:category', (req, res) => {
 
 app.get('/api/health', (req, res) => res.json({ success: true }));
 
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-app.listen(PORT, () => console.log(`✅ Server started on :${PORT}`));
+app.listen(PORT, () => console.log(`✅ Server on :${PORT}`));
