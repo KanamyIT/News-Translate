@@ -9,15 +9,16 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors({ origin: '*' }));
-app.use(express.json({ limit: '6mb' }));
+app.use(express.json({ limit: '8mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 const translator = require('./translator');
 
-// -------------------- MyMemory translate --------------------
-// MyMemory GET: /get?q=...&langpair=en|ru and responseData.translatedText [page:0]
+// ===================== MyMemory translate =====================
+// MyMemory GET: /get?q=...&langpair=en|ru, translatedText in responseData [page:0]
 const trCache = new Map();
+
 async function myMemoryTranslate(text, from = 'en', to = 'ru') {
   const clean = String(text || '').trim();
   if (!clean) return clean;
@@ -33,7 +34,7 @@ async function myMemoryTranslate(text, from = 'en', to = 'ru') {
   return translated;
 }
 
-function splitText(text, maxLen = 450) {
+function splitText(text, maxLen = 480) {
   const s = String(text || '');
   if (s.length <= maxLen) return [s];
 
@@ -43,7 +44,7 @@ function splitText(text, maxLen = 450) {
     let end = Math.min(i + maxLen, s.length);
     const slice = s.slice(i, end);
     const lastSpace = slice.lastIndexOf(' ');
-    if (lastSpace > 200) end = i + lastSpace;
+    if (lastSpace > 220) end = i + lastSpace;
     parts.push(s.slice(i, end));
     i = end;
   }
@@ -51,7 +52,7 @@ function splitText(text, maxLen = 450) {
 }
 
 async function translateLong(text, from = 'en', to = 'ru') {
-  const chunks = splitText(text, 450);
+  const chunks = splitText(text, 480);
   let out = '';
   for (const ch of chunks) out += await myMemoryTranslate(ch, from, to).catch(() => ch);
   return out;
@@ -72,14 +73,12 @@ async function toRuIfNeeded(text) {
   return translateLong(t, 'en', 'ru');
 }
 
-// -------------------- Small sanitizer --------------------
+// ===================== Helpers =====================
 function removeOnAttributes($root) {
   $root.find('*').each((_, el) => {
     const attrs = el.attribs || {};
     for (const k of Object.keys(attrs)) {
-      if (k.toLowerCase().startsWith('on')) {
-        delete el.attribs[k];
-      }
+      if (k.toLowerCase().startsWith('on')) delete el.attribs[k];
     }
   });
 }
@@ -96,7 +95,7 @@ function absolutizeUrl(src, baseUrl) {
   }
 }
 
-// -------------------- Image proxy (for OCR + CORS) --------------------
+// Proxy images (needed for OCR + some sites CORS)
 app.get('/api/image', async (req, res) => {
   try {
     const url = String(req.query.url || '').trim();
@@ -106,12 +105,11 @@ app.get('/api/image', async (req, res) => {
       responseType: 'arraybuffer',
       timeout: 20000,
       headers: { 'User-Agent': 'Mozilla/5.0 (Render; Node.js)' },
-      maxContentLength: 2 * 1024 * 1024,
-      maxBodyLength: 2 * 1024 * 1024
+      maxContentLength: 3 * 1024 * 1024,
+      maxBodyLength: 3 * 1024 * 1024
     });
 
-    const ct = r.headers['content-type'] || 'image/jpeg';
-    res.setHeader('Content-Type', ct);
+    res.setHeader('Content-Type', r.headers['content-type'] || 'image/jpeg');
     res.setHeader('Cache-Control', 'public, max-age=86400');
     res.send(Buffer.from(r.data));
   } catch {
@@ -119,8 +117,18 @@ app.get('/api/image', async (req, res) => {
   }
 });
 
-// -------------------- Translate URL (keep images) --------------------
-function pickMainScope($) {
+// ===================== Translate URL =====================
+function pickMainScope($, url) {
+  const host = (() => {
+    try { return new URL(url).hostname; } catch { return ''; }
+  })();
+
+  // Wikipedia: берём основной контент, иначе много мусора/меню/сайдбаров
+  if (host.includes('wikipedia.org')) {
+    const w = $('#mw-content-text').first();
+    if (w.length) return w;
+  }
+
   const candidates = ['article', 'main', '#main', '.w3-main', '#content', '.content', 'body'];
   for (const sel of candidates) {
     const $el = $(sel).first();
@@ -136,12 +144,15 @@ function cleanupScope($scope) {
     '#leftmenu,#right,#sidemenu,#topnav,#nav,' +
     '.sidebar,.side-bar,.nav,.navigation,.menu'
   ).remove();
+
+  // Wikipedia: уберём блоки “References/External links” и т.п.
+  $scope.find('.reflist,.reference,.mw-references-wrap,ol.references,.navbox,.infobox').remove();
 }
 
 async function translateTextNodesCheerio($, $root, baseUrl) {
   const SKIP = new Set(['script', 'style', 'noscript', 'pre', 'code', 'kbd', 'samp', 'var']);
 
-  // images: make src absolute and route through our proxy
+  // 1) images => absolute + through /api/image
   $root.find('img').each((_, el) => {
     const $img = $(el);
     const srcRaw = $img.attr('src') || $img.attr('data-src') || $img.attr('data-original');
@@ -154,22 +165,21 @@ async function translateTextNodesCheerio($, $root, baseUrl) {
     }
 
     $img.attr('loading', 'lazy');
-    $img.css('max-width', '100%');
-    $img.css('height', 'auto');
+    $img.attr('style', (String($img.attr('style') || '') + ';max-width:100%;height:auto;border-radius:12px;').trim());
 
-    // translate alt/title
     const alt = $img.attr('alt');
     const title = $img.attr('title');
-    if (alt && looksEnglish(alt)) $img.attr('alt', alt); // будет переведено ниже
+    if (alt && looksEnglish(alt)) $img.attr('alt', alt);
     if (title && looksEnglish(title)) $img.attr('title', title);
   });
 
-  // collect unique texts
+  // 2) collect texts (BIGGER LIMITS so pages are translated more fully)
   const nodes = $root.find('*').addBack().contents();
   const uniq = new Set();
 
   nodes.each((_, node) => {
     if (node.type !== 'text') return;
+
     const parentTag = node.parent && node.parent.name ? String(node.parent.name).toLowerCase() : '';
     if (SKIP.has(parentTag)) return;
 
@@ -177,22 +187,26 @@ async function translateTextNodesCheerio($, $root, baseUrl) {
     if (!raw || !raw.trim()) return;
 
     const t = raw.replace(/\s+/g, ' ').trim();
-    if (!t || t.length < 3) return;
+    if (!t) return;
 
-    // не переводим явный код
+    // не переводим очевидный код
     if (/[{}()[\];<>]|=>|::|->|==|!=|===/.test(t)) return;
 
     uniq.add(t);
   });
 
-  const list = Array.from(uniq).slice(0, 180);
+  // Было мало => было “половина страницы англ.”
+  const list = Array.from(uniq).slice(0, 1200);
+
   const map = new Map();
   for (const t of list) {
+    if (hasCyrillic(t)) { map.set(t, t); continue; }
     map.set(t, await toRuIfNeeded(t));
   }
 
   nodes.each((_, node) => {
     if (node.type !== 'text') return;
+
     const parentTag = node.parent && node.parent.name ? String(node.parent.name).toLowerCase() : '';
     if (SKIP.has(parentTag)) return;
 
@@ -207,7 +221,7 @@ async function translateTextNodesCheerio($, $root, baseUrl) {
     node.data = lead + map.get(t) + trail;
   });
 
-  // translate img alt/title (после общего map)
+  // 3) translate img alt/title after
   const imgs = $root.find('img');
   for (let i = 0; i < imgs.length; i++) {
     const $img = $(imgs[i]);
@@ -224,7 +238,7 @@ app.post('/api/translate-url', async (req, res) => {
     if (!url) return res.status(400).json({ success: false, error: 'URL не предоставлен' });
 
     const response = await axios.get(url, {
-      timeout: 25000,
+      timeout: 30000,
       headers: { 'User-Agent': 'Mozilla/5.0 (Render; Node.js)', 'Accept-Language': 'ru,en;q=0.8' }
     });
 
@@ -236,20 +250,22 @@ app.post('/api/translate-url', async (req, res) => {
       $('title').text().trim() ||
       'Статья';
 
-    const $scope = pickMainScope($);
+    const $scope = pickMainScope($, url);
     cleanupScope($scope);
 
     const $out = $('<div class="translated-article"></div>');
 
-    const els = $scope.find('h1,h2,h3,p,ul,ol,li,pre,blockquote,figure,img,figcaption').toArray();
+    const els = $scope.find('h1,h2,h3,h4,p,ul,ol,li,pre,blockquote,figure,img,figcaption').toArray();
 
+    // Раньше было “пол-страницы” из‑за слишком маленьких лимитов
     let added = 0;
     let charBudget = 0;
-    const MAX_ELEMS = 140;
-    const MAX_CHARS = 26000;
+    const MAX_ELEMS = 420;
+    const MAX_CHARS = 90000;
 
     for (const el of els) {
       if (added >= MAX_ELEMS || charBudget >= MAX_CHARS) break;
+
       const $el = $(el);
       const tag = (el.name || '').toLowerCase();
 
@@ -257,7 +273,7 @@ app.post('/api/translate-url', async (req, res) => {
 
       if (tag === 'p' || tag === 'li') {
         const t = $el.text().replace(/\s+/g, ' ').trim();
-        if (t.length < 20) continue;
+        if (!t) continue;
         charBudget += t.length;
       }
 
@@ -270,11 +286,9 @@ app.post('/api/translate-url', async (req, res) => {
 
     await translateTextNodesCheerio($, $out, url);
 
-    const titleRu = await toRuIfNeeded(rawTitle);
-
     res.json({
       success: true,
-      title: titleRu,
+      title: await toRuIfNeeded(rawTitle),
       contentHtml: $out.html() || '<p>Не удалось извлечь контент.</p>',
       sourceUrl: url
     });
@@ -283,13 +297,12 @@ app.post('/api/translate-url', async (req, res) => {
   }
 });
 
-// translate-text (используем и для OCR)
+// translate-text for OCR / tab text
 app.post('/api/translate-text', async (req, res) => {
   try {
     const { text, from = 'en', to = 'ru' } = req.body || {};
     if (!text) return res.status(400).json({ success: false, error: 'Текст не предоставлен' });
-    const translated = await translateLong(text, from, to);
-    res.json({ success: true, translated });
+    res.json({ success: true, translated: await translateLong(text, from, to) });
   } catch (e) {
     res.status(500).json({ success: false, error: `Ошибка перевода: ${e.message || 'unknown'}` });
   }
@@ -307,10 +320,10 @@ app.post('/api/translate-word', (req, res) => {
   }
 });
 
-// -------------------- Weather: current + 3 days --------------------
-// wttr localization: ?lang=ru or Accept-Language header [page:2]
+// ===================== Weather current + 3 days =====================
+// wttr supports lang=ru via query/header [page:2]
 const conditionMapRu = {
-  'Heavy snow': 'Сильный снег',
+  'Heavy snow': 'Сильный снегопад',
   'Moderate snow': 'Умеренный снег',
   'Light snow': 'Небольшой снег',
   'Snow': 'Снег',
@@ -333,7 +346,6 @@ async function normalizeWeatherDesc(desc) {
   if (!d) return '—';
   if (hasCyrillic(d)) return d;
   if (conditionMapRu[d]) return conditionMapRu[d];
-  // fallback: MyMemory [page:0]
   return toRuIfNeeded(d);
 }
 
@@ -387,29 +399,49 @@ app.get('/api/weather', async (req, res) => {
   }
 });
 
-// Articles
+// ===================== Articles (MORE links) =====================
 app.get('/api/articles/:category', (req, res) => {
   const { category } = req.params;
 
   const articles = {
     programming: [
-      { title: 'JavaScript для начинающих', url: 'https://www.w3schools.com/js/' },
-      { title: 'Python основы', url: 'https://www.w3schools.com/python/' },
-      { title: 'HTML и CSS', url: 'https://www.w3schools.com/html/' },
-      { title: 'React документация', url: 'https://react.dev/' },
-      { title: 'Node.js документация', url: 'https://nodejs.org/en/docs/' }
+      { title: 'JavaScript Tutorial (W3Schools)', url: 'https://www.w3schools.com/js/' },
+      { title: 'Python Tutorial (W3Schools)', url: 'https://www.w3schools.com/python/' },
+      { title: 'HTML Tutorial (W3Schools)', url: 'https://www.w3schools.com/html/' },
+      { title: 'CSS Tutorial (W3Schools)', url: 'https://www.w3schools.com/css/' },
+      { title: 'React Docs', url: 'https://react.dev/' },
+      { title: 'Node.js Docs', url: 'https://nodejs.org/en/docs/' },
+      { title: 'MDN JavaScript Guide', url: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide' },
+      { title: 'MDN CSS', url: 'https://developer.mozilla.org/en-US/docs/Web/CSS' },
+      { title: 'Git Handbook', url: 'https://guides.github.com/introduction/git-handbook/' },
+      { title: 'HTTP overview (MDN)', url: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Overview' }
     ],
     history: [
-      { title: 'Древний Рим', url: 'https://en.wikipedia.org/wiki/Ancient_Rome' },
-      { title: 'Средние века', url: 'https://en.wikipedia.org/wiki/Middle_Ages' }
+      { title: 'Ancient Rome', url: 'https://en.wikipedia.org/wiki/Ancient_Rome' },
+      { title: 'Middle Ages', url: 'https://en.wikipedia.org/wiki/Middle_Ages' },
+      { title: 'Renaissance', url: 'https://en.wikipedia.org/wiki/Renaissance' },
+      { title: 'French Revolution', url: 'https://en.wikipedia.org/wiki/French_Revolution' },
+      { title: 'World War I', url: 'https://en.wikipedia.org/wiki/World_War_I' },
+      { title: 'World War II', url: 'https://en.wikipedia.org/wiki/World_War_II' },
+      { title: 'Industrial Revolution', url: 'https://en.wikipedia.org/wiki/Industrial_Revolution' },
+      { title: 'History of China', url: 'https://en.wikipedia.org/wiki/History_of_China' }
     ],
     games: [
-      { title: 'История видеоигр', url: 'https://en.wikipedia.org/wiki/Video_game' },
-      { title: 'Game Programming Patterns', url: 'https://gameprogrammingpatterns.com/' }
+      { title: 'Video game (Wikipedia)', url: 'https://en.wikipedia.org/wiki/Video_game' },
+      { title: 'Game design (Wikipedia)', url: 'https://en.wikipedia.org/wiki/Game_design' },
+      { title: 'Game Programming Patterns', url: 'https://gameprogrammingpatterns.com/' },
+      { title: 'Unity Manual', url: 'https://docs.unity3d.com/Manual/index.html' },
+      { title: 'Unreal Engine', url: 'https://www.unrealengine.com/' },
+      { title: 'Esports (Wikipedia)', url: 'https://en.wikipedia.org/wiki/Esports' },
+      { title: 'Level design', url: 'https://en.wikipedia.org/wiki/Level_design' }
     ],
     cinema: [
-      { title: 'История кино', url: 'https://en.wikipedia.org/wiki/History_of_film' },
-      { title: 'Режиссура', url: 'https://en.wikipedia.org/wiki/Film_directing' }
+      { title: 'History of film', url: 'https://en.wikipedia.org/wiki/History_of_film' },
+      { title: 'Cinematography', url: 'https://en.wikipedia.org/wiki/Cinematography' },
+      { title: 'Film directing', url: 'https://en.wikipedia.org/wiki/Film_directing' },
+      { title: 'Screenwriting', url: 'https://en.wikipedia.org/wiki/Screenwriting' },
+      { title: 'Animation', url: 'https://en.wikipedia.org/wiki/Animation' },
+      { title: 'Film editing', url: 'https://en.wikipedia.org/wiki/Film_editing' }
     ]
   };
 
@@ -417,7 +449,6 @@ app.get('/api/articles/:category', (req, res) => {
 });
 
 app.get('/api/health', (req, res) => res.json({ success: true }));
-
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 app.listen(PORT, () => console.log(`✅ Server on :${PORT}`));
