@@ -1,3 +1,12 @@
+// --- FIX: undici expects global File (Node 18 sometimes doesn't provide it) ---
+try {
+  if (typeof global.File === 'undefined') {
+    global.File = require('@web-std/file').File;
+  }
+} catch (e) {
+  // если зависимость не установлена — сервис всё равно упадёт, поэтому см. шаг 2
+}
+
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
