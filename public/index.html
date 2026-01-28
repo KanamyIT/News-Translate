@@ -76,6 +76,13 @@
     .btn:hover{background:#ff5a1f}
     .btn:disabled{background:#bbb;cursor:not-allowed}
 
+    .btn-secondary{
+      background:transparent;
+      border:2px solid var(--primary-orange);
+      color:var(--primary-orange);
+    }
+    .btn-secondary:hover{background:var(--primary-orange);color:#fff}
+
     .category-buttons{
       display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
       gap:12px;margin-bottom:16px;
@@ -93,7 +100,6 @@
 
     .block-title{font-size:16px;font-weight:900;margin:6px 0 12px;color:var(--primary-orange)}
 
-    /* ✅ ВАЖНО: статьи теперь НЕ скроллятся горизонтально, а уходят вниз */
     .articles-grid{
       display:grid;
       grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -130,6 +136,18 @@
     }
     body.dark-mode .translated-content pre{background:var(--primary-dark)}
     .translated-content code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace}
+    .translated-content img{max-width:100%;height:auto;border-radius:12px;margin:12px 0;display:block}
+
+    .ocr-box{
+      border:2px dashed rgba(255,107,53,.45);
+      border-radius:12px;
+      padding:12px;
+      margin:10px 0 18px;
+      background:rgba(255,107,53,.06);
+    }
+    body.dark-mode .ocr-box{background:rgba(255,107,53,.10)}
+    .ocr-box .title{font-weight:900;color:var(--primary-orange);margin-bottom:6px}
+    .ocr-box .small{font-size:12px;opacity:.8}
 
     .audio-player{
       display:flex;gap:12px;align-items:center;
@@ -158,6 +176,21 @@
       color:#fff;padding:18px;border-radius:16px;box-shadow:0 10px 26px rgba(74,144,226,.25);
     }
     .temp-display{font-size:30px;font-weight:900;margin:4px 0 10px}
+    .forecast-grid{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:10px;
+      margin-top:10px;
+    }
+    .forecast-day{
+      background:rgba(255,255,255,.12);
+      border:1px solid rgba(255,255,255,.22);
+      border-radius:12px;
+      padding:10px;
+      font-size:13px;
+    }
+    .forecast-day .d{font-weight:900}
+    .forecast-day .row{opacity:.95;margin-top:4px}
 
     .word-translator{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     @media (max-width: 800px){.word-translator{grid-template-columns:1fr}}
@@ -226,6 +259,7 @@
                 <div class="temp-display">--°C</div>
                 <div style="opacity:.9">Загрузка...</div>
               </div>
+              <div class="forecast-grid" id="weatherForecast"></div>
             </div>
           </div>
         </div>
@@ -266,9 +300,9 @@
             <div class="temp-display">--°C</div>
             <div style="opacity:.9">Загрузка...</div>
           </div>
+          <div class="forecast-grid" id="weatherForecastTab"></div>
         </div>
       </div>
-
     </div>
   </div>
 
@@ -293,7 +327,7 @@
     changeFunFact();
     setInterval(changeFunFact, 15000);
 
-    updateWeatherWidgets();
+    updateWeatherAll();
   });
 
   function switchTab(tab, event){
@@ -304,7 +338,7 @@
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     event.target.closest('.tab-btn').classList.add('active');
 
-    if (tab === 'weather') updateWeatherWidgets();
+    if (tab === 'weather') updateWeatherAll();
   }
 
   function changeFunFact(){
@@ -346,6 +380,7 @@
     }catch{}
   }
 
+  // -------- Translate URL ----------
   async function translateUrl(){
     const url = document.getElementById('urlInput').value.trim();
     if (!url) return alert('Введите URL');
@@ -364,119 +399,4 @@
 
       document.getElementById('contentArea').innerHTML = `
         <div class="audio-player">
-          <button onclick="speak(${JSON.stringify(data.title)})"><i class="fas fa-volume-up"></i> Озвучить</button>
-          <div style="font-weight:900">Заголовок: ${escapeHtml(data.title)}</div>
-        </div>
-        <div class="translated-content">${data.contentHtml}</div>
-      `;
-      speak(data.title);
-    }catch(e){
-      showError(e.message || 'Ошибка сети');
-    }
-  }
-
-  async function translateText(){
-    const text = document.getElementById('textInput').value.trim();
-    if (!text) return alert('Введите текст');
-
-    try{
-      const r = await fetch('/api/translate-text', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ text, from:'en', to:'ru' })
-      });
-      const data = await r.json();
-      if (!data.success) return alert(data.error || 'Ошибка');
-
-      const area = document.getElementById('translatedTextArea');
-      area.style.display = 'block';
-      area.innerHTML = `<h3 style="color:var(--primary-orange);margin-bottom:10px">Перевод</h3><p>${escapeHtml(data.translated)}</p>`;
-      speak(data.translated);
-    }catch(e){
-      alert(e.message || 'Ошибка');
-    }
-  }
-
-  async function translateWord(word, direction){
-    const w = String(word || '').trim();
-    if (!w) return;
-
-    const resultId = direction === 'en-ru' ? 'wordResult' : 'wordResultRu';
-    const el = document.getElementById(resultId);
-
-    try{
-      const r = await fetch('/api/translate-word', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ word: w, direction })
-      });
-      const data = await r.json();
-      el.style.display = 'block';
-      el.textContent = data.success ? data.translation : 'Не найдено';
-    }catch{
-      el.style.display = 'block';
-      el.textContent = 'Ошибка';
-    }
-  }
-
-  async function loadCategory(category){
-    const grid = document.getElementById('articlesGrid');
-    grid.innerHTML = `<div style="opacity:.75;font-size:14px;padding:8px 2px">Загрузка статей...</div>`;
-
-    try{
-      const r = await fetch('/api/articles/' + category);
-      const data = await r.json();
-      const list = data.articles || [];
-
-      if (!list.length){
-        grid.innerHTML = `<div style="opacity:.75;font-size:14px;padding:8px 2px">Нет статей</div>`;
-        return;
-      }
-
-      grid.innerHTML = list.map(a => `
-        <div class="article-card" onclick="loadArticle(${JSON.stringify(a.url)})">
-          <h4>${escapeHtml(a.title)}</h4>
-          <div class="meta">${escapeHtml(category)} • нажми чтобы открыть</div>
-          <div class="meta" style="margin-top:8px">${escapeHtml(a.url)}</div>
-        </div>
-      `).join('');
-    }catch(e){
-      grid.innerHTML = `<div style="opacity:.75;font-size:14px;padding:8px 2px">Ошибка: ${escapeHtml(e.message || '')}</div>`;
-    }
-  }
-
-  function loadArticle(url){
-    document.getElementById('urlInput').value = url;
-    translateUrl();
-  }
-
-  async function updateWeatherWidgets(){
-    await updateWeatherInto('weatherInfo');
-    await updateWeatherInto('weatherInfoTab');
-  }
-
-  async function updateWeatherInto(elementId){
-    const el = document.getElementById(elementId);
-    if (!el) return;
-
-    el.innerHTML = `<div class="temp-display">--°C</div><div style="opacity:.9">Загрузка...</div>`;
-
-    try{
-      const r = await fetch('/api/weather?city=Moscow');
-      const data = await r.json();
-      if (!data.success) throw new Error(data.error || 'weather');
-
-      el.innerHTML = `
-        <div class="temp-display">${Math.round(Number(data.tempC || 0))}°C</div>
-        <div style="opacity:.95"><b>Состояние:</b> ${escapeHtml(data.desc || '—')}</div>
-        <div style="opacity:.95"><b>Влажность:</b> ${escapeHtml(data.humidity || '—')}%</div>
-        <div style="opacity:.95"><b>Ветер:</b> ${escapeHtml(data.windKmph || '—')} км/ч</div>
-        <div style="opacity:.95"><b>Город:</b> ${escapeHtml(data.location || 'Москва')}</div>
-      `;
-    }catch{
-      el.innerHTML = `<div style="opacity:.9">Ошибка загрузки погоды</div>`;
-    }
-  }
-</script>
-</body>
-</html>
+          <button onclick="speak(${JSON.stringify(data.title)})"><i class="fas
