@@ -1,11 +1,12 @@
-// --- FIX: undici expects global File (Node 18 sometimes doesn't provide it) ---
+// --- FIX for Node 18 + undici: define global Blob/File if missing ---
 try {
-  if (typeof global.File === 'undefined') {
-    global.File = require('@web-std/file').File;
-  }
+  const { Blob, File } = require('buffer');
+  if (typeof globalThis.Blob === 'undefined') globalThis.Blob = Blob;
+  if (typeof globalThis.File === 'undefined') globalThis.File = File;
 } catch (e) {
-  // если зависимость не установлена — сервис всё равно упадёт, поэтому см. шаг 2
+  // ignore
 }
+
 
 const express = require('express');
 const cors = require('cors');
