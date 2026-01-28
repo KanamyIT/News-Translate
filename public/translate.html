@@ -1,40 +1,134 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Translate • News/Translate</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>News/Translate - Translate Page</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700;800&display=swap" rel="stylesheet">
+  <style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
 
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css" />
+:root {
+  --orange: #ff6b35;
+  --bg: #ffffff;
+  --text: #333;
+  --card: #fff;
+  --border: #ddd;
+  --shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  transition: 0.2s;
+  font-family: Poppins, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+}
+
+body.dark {
+  --bg: #1a1a1a;
+  --text: #f0f0f0;
+  --card: #2d2d2d;
+  --border: #444;
+  --shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 36px;
+  border-bottom: 2px solid var(--orange);
+  background: linear-gradient(135deg, #fff 0%, #f5f5f5 100%);
+}
+
+body.dark .header {
+  background: linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%);
+}
+
+.logo {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--orange);
+}
+
+.logo span {
+  color: var(--text);
+  opacity: 0.85;
+}
+
+.theme-toggle {
+  background: var(--orange);
+  border: none;
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 800;
+  transition: 0.2s;
+}
+
+.theme-toggle:hover {
+  background: #ff5a1f;
+}
+
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 34px 18px;
+}
+
+.card {
+  background: var(--card);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 28px;
+}
+
+a {
+  color: var(--orange);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+  </style>
 </head>
-<body data-page="translate">
+<body>
   <header class="header">
-    <div class="logo">News/Translate <span>by Kanamy</span></div>
-    <div style="display:flex;gap:10px;align-items:center">
-      <a class="small-btn" href="/" style="text-decoration:none;display:inline-flex;align-items:center;gap:8px">
-        <i class="fas fa-arrow-left"></i> К карточкам
-      </a>
-      <button class="theme-toggle" id="themeBtn"><i class="fas fa-moon"></i> Тема</button>
-    </div>
+    <div class="logo">News/<span>Translate</span></div>
+    <button class="theme-toggle" id="themeBtn">🌙 Темная</button>
   </header>
 
-  <main class="container">
-    <section class="card">
-      <h1 class="title">Перевод страницы</h1>
+  <div class="container">
+    <div class="card">
+      <h1>📱 Перейди на главную</h1>
+      <p style="margin-top: 20px;">Эта страница нужна для прямого доступа. Вернись на <a href="/">главную страницу</a> для полного функционала.</p>
+    </div>
+  </div>
 
-      <div class="input-row">
-        <input id="urlInput" class="input" placeholder="https://example.com" />
-        <button id="translateUrlBtn" class="btn"><i class="fas fa-globe"></i> Перевести</button>
-      </div>
+  <script>
+function setTheme(dark) {
+  document.body.classList.toggle('dark', !!dark);
+  localStorage.setItem('theme', dark ? 'dark' : 'light');
+  document.getElementById('themeBtn').textContent = dark ? '☀️ Светлая' : '🌙 Темная';
+}
 
-      <div id="contentArea" class="contentArea">
-        <div class="loading"><div class="spinner"></div> Вставь ссылку или перейди из карточек</div>
-      </div>
-    </section>
-  </main>
+function initTheme() {
+  const stored = localStorage.getItem('theme') || 'light';
+  setTheme(stored === 'dark');
+}
 
-  <script src="/app.js?v=10" defer></script>
+document.getElementById('themeBtn').addEventListener('click', () => {
+  const isDark = document.body.classList.contains('dark');
+  setTheme(!isDark);
+});
+
+window.addEventListener('DOMContentLoaded', initTheme);
+  </script>
 </body>
 </html>
