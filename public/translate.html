@@ -1,134 +1,39 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>News/Translate - Translate Page</title>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;700;800&display=swap" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Перевод статьи</title>
+  <link rel="stylesheet" href="/styles.css" />
   <style>
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-:root {
-  --orange: #ff6b35;
-  --bg: #ffffff;
-  --text: #333;
-  --card: #fff;
-  --border: #ddd;
-  --shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
-}
-
-body {
-  background: var(--bg);
-  color: var(--text);
-  transition: 0.2s;
-  font-family: Poppins, system-ui, -apple-system, Segoe UI, Roboto, Arial;
-}
-
-body.dark {
-  --bg: #1a1a1a;
-  --text: #f0f0f0;
-  --card: #2d2d2d;
-  --border: #444;
-  --shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
-}
-
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 18px 36px;
-  border-bottom: 2px solid var(--orange);
-  background: linear-gradient(135deg, #fff 0%, #f5f5f5 100%);
-}
-
-body.dark .header {
-  background: linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%);
-}
-
-.logo {
-  font-size: 28px;
-  font-weight: 800;
-  color: var(--orange);
-}
-
-.logo span {
-  color: var(--text);
-  opacity: 0.85;
-}
-
-.theme-toggle {
-  background: var(--orange);
-  border: none;
-  color: #fff;
-  padding: 10px 14px;
-  border-radius: 10px;
-  cursor: pointer;
-  font-weight: 800;
-  transition: 0.2s;
-}
-
-.theme-toggle:hover {
-  background: #ff5a1f;
-}
-
-.container {
-  max-width: 1000px;
-  margin: 0 auto;
-  padding: 34px 18px;
-}
-
-.card {
-  background: var(--card);
-  border-radius: 16px;
-  box-shadow: var(--shadow);
-  padding: 28px;
-}
-
-a {
-  color: var(--orange);
-  text-decoration: none;
-}
-
-a:hover {
-  text-decoration: underline;
-}
+    body{font-family:Manrope,system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    .wrap{max-width:1200px;margin:0 auto;padding:26px 16px}
+    .top{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
   </style>
 </head>
-<body>
-  <header class="header">
-    <div class="logo">News/<span>Translate</span></div>
-    <button class="theme-toggle" id="themeBtn">🌙 Темная</button>
-  </header>
 
-  <div class="container">
-    <div class="card">
-      <h1>📱 Перейди на главную</h1>
-      <p style="margin-top: 20px;">Эта страница нужна для прямого доступа. Вернись на <a href="/">главную страницу</a> для полного функционала.</p>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <a class="small-btn" href="/"><i class="fas fa-arrow-left"></i> На главную</a>
+
+      <div class="translated-toolbar">
+        <button class="small-btn active" id="dirEnRu">EN → RU</button>
+        <button class="small-btn" id="dirRuEn">RU → EN</button>
+      </div>
+    </div>
+
+    <div class="input-row">
+      <input type="url" id="urlInput" class="input" placeholder="https://example.com" />
+      <button class="btn" id="goBtn"><i class="fas fa-language"></i> Перевести</button>
+    </div>
+
+    <div class="contentArea" id="out">
+      <div class="muted">Вставь ссылку или открой со страницы карточек.</div>
     </div>
   </div>
 
-  <script>
-function setTheme(dark) {
-  document.body.classList.toggle('dark', !!dark);
-  localStorage.setItem('theme', dark ? 'dark' : 'light');
-  document.getElementById('themeBtn').textContent = dark ? '☀️ Светлая' : '🌙 Темная';
-}
-
-function initTheme() {
-  const stored = localStorage.getItem('theme') || 'light';
-  setTheme(stored === 'dark');
-}
-
-document.getElementById('themeBtn').addEventListener('click', () => {
-  const isDark = document.body.classList.contains('dark');
-  setTheme(!isDark);
-});
-
-window.addEventListener('DOMContentLoaded', initTheme);
-  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+  <script src="/translate.js?v=1"></script>
 </body>
 </html>
