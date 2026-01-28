@@ -4,399 +4,99 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>News/Translate by Kanamy</title>
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-
-  <style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    :root{
-      --primary-orange:#ff6b35;
-      --primary-white:#ffffff;
-      --primary-dark:#1a1a1a;
-      --secondary-gray:#2d2d2d;
-      --text-light:#f0f0f0;
-      --text-dark:#333333;
-      --accent-blue:#4a90e2;
-      --border:#ddd;
-    }
-    body{font-family:'Poppins',sans-serif;background:var(--primary-white);color:var(--text-dark);transition:.25s;overflow-x:hidden}
-    body.dark-mode{background:var(--primary-dark);color:var(--text-light);--border:#444}
-
-    .header{
-      display:flex;justify-content:space-between;align-items:center;
-      padding:18px 36px;
-      background:linear-gradient(135deg,#fff 0%,#f5f5f5 100%);
-      border-bottom:2px solid var(--primary-orange);
-      box-shadow:0 4px 15px rgba(0,0,0,.08);
-      position:sticky;top:0;z-index:10;
-    }
-    body.dark-mode .header{background:linear-gradient(135deg,var(--secondary-gray) 0%,var(--primary-dark) 100%)}
-    .logo{font-size:28px;font-weight:800;color:var(--primary-orange)}
-    .logo span{color:var(--text-dark)}
-    body.dark-mode .logo span{color:var(--primary-white)}
-    .theme-toggle{
-      background:var(--primary-orange);border:none;color:#fff;
-      padding:10px 14px;border-radius:10px;cursor:pointer;font-weight:800;
-      display:flex;gap:8px;align-items:center;
-    }
-    .theme-toggle:hover{background:#ff5a1f}
-
-    .container{max-width:1400px;margin:0 auto;padding:34px 18px}
-    .card{
-      background:#fff;border-radius:16px;
-      box-shadow:0 8px 30px rgba(0,0,0,.10);
-      padding:28px;
-    }
-    body.dark-mode .card{background:var(--secondary-gray);box-shadow:0 8px 30px rgba(0,0,0,.30)}
-
-    .translator-title{font-size:32px;font-weight:800;margin-bottom:18px}
-    .tabs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
-    .tab-btn{
-      background:#fff;border:2px solid var(--primary-orange);
-      color:var(--primary-orange);
-      padding:12px 18px;border-radius:10px;cursor:pointer;font-weight:800;
-    }
-    body.dark-mode .tab-btn{background:var(--primary-dark)}
-    .tab-btn.active{background:var(--primary-orange);color:#fff}
-    .tab-btn:hover{background:var(--primary-orange);color:#fff}
-
-    .input-group{display:flex;gap:12px;margin-bottom:18px}
-    .input-field{
-      flex:1;padding:14px 16px;border:2px solid var(--border);
-      border-radius:12px;font-family:'Poppins',sans-serif;font-size:15px;
-      outline:none;background:#fff;color:var(--text-dark);
-    }
-    body.dark-mode .input-field{background:var(--primary-dark);color:var(--text-light);border-color:var(--border)}
-    .input-field:focus{border-color:var(--primary-orange)}
-
-    .btn{
-      padding:14px 18px;border:none;border-radius:12px;background:var(--primary-orange);
-      color:#fff;font-weight:900;cursor:pointer;display:flex;gap:8px;align-items:center;white-space:nowrap;
-    }
-    .btn:hover{background:#ff5a1f}
-    .btn:disabled{background:#bbb;cursor:not-allowed}
-
-    .btn-secondary{
-      background:transparent;
-      border:2px solid var(--primary-orange);
-      color:var(--primary-orange);
-    }
-    .btn-secondary:hover{background:var(--primary-orange);color:#fff}
-
-    .category-buttons{
-      display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
-      gap:12px;margin-bottom:16px;
-    }
-    .category-btn{
-      padding:14px 14px;background:#fff;border:2px solid var(--primary-orange);
-      color:var(--primary-orange);border-radius:12px;cursor:pointer;font-weight:900;
-      display:flex;gap:10px;justify-content:center;align-items:center;
-    }
-    body.dark-mode .category-btn{background:var(--primary-dark)}
-    .category-btn:hover{background:var(--primary-orange);color:#fff}
-
-    .content-area{display:grid;grid-template-columns: 1fr 320px;gap:18px;margin-top:10px}
-    @media (max-width: 900px){.content-area{grid-template-columns:1fr}}
-
-    .block-title{font-size:16px;font-weight:900;margin:6px 0 12px;color:var(--primary-orange)}
-
-    .articles-grid{
-      display:grid;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-      gap:14px;
-      margin-bottom:14px;
-    }
-    .article-card{
-      border:2px solid var(--border);
-      border-radius:16px;
-      padding:16px;
-      background:#fff;
-      cursor:pointer;
-      transition:.2s;
-      min-height:110px;
-    }
-    body.dark-mode .article-card{background:var(--primary-dark);border-color:var(--border)}
-    .article-card:hover{
-      border-color:var(--primary-orange);
-      box-shadow:0 10px 24px rgba(255,107,53,.20);
-      transform:translateY(-2px);
-    }
-    .article-card h4{font-size:16px;line-height:1.25;margin-bottom:8px}
-    .article-card .meta{font-size:12px;opacity:.75;word-break:break-word}
-
-    .translated-content{
-      background:#fff;border-radius:16px;padding:22px;line-height:1.8;border:2px solid var(--border);
-    }
-    body.dark-mode .translated-content{background:var(--secondary-gray)}
-    .translated-content h1,.translated-content h2,.translated-content h3{color:var(--primary-orange);margin:16px 0 8px}
-    .translated-content p{margin:0 0 12px}
-    .translated-content pre{
-      background:#f4f4f4;padding:14px;border-radius:12px;overflow:auto;
-      border-left:4px solid var(--primary-orange);margin:12px 0;
-    }
-    body.dark-mode .translated-content pre{background:var(--primary-dark)}
-    .translated-content code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace}
-    .translated-content img{max-width:100%;height:auto;border-radius:12px;margin:12px 0;display:block}
-
-    .ocr-box{
-      border:2px dashed rgba(255,107,53,.45);
-      border-radius:12px;
-      padding:12px;
-      margin:10px 0 18px;
-      background:rgba(255,107,53,.06);
-    }
-    body.dark-mode .ocr-box{background:rgba(255,107,53,.10)}
-    .ocr-box .title{font-weight:900;color:var(--primary-orange);margin-bottom:6px}
-    .ocr-box .small{font-size:12px;opacity:.8}
-
-    .audio-player{
-      display:flex;gap:12px;align-items:center;
-      background:#f0f0f0;border-radius:12px;padding:12px;margin-bottom:12px;
-    }
-    body.dark-mode .audio-player{background:var(--primary-dark)}
-    .audio-player button{
-      background:var(--primary-orange);border:none;color:#fff;padding:10px 12px;border-radius:10px;cursor:pointer;font-weight:900;
-    }
-    .audio-player button:hover{background:#ff5a1f}
-
-    .loading{display:flex;gap:12px;align-items:center;justify-content:center;padding:46px;color:var(--primary-orange);font-weight:900}
-    .spinner{width:40px;height:40px;border-radius:50%;border:4px solid #f3f3f3;border-top:4px solid var(--primary-orange);animation:spin 1s linear infinite}
-    @keyframes spin{to{transform:rotate(360deg)}}
-
-    .fun-facts{
-      background:linear-gradient(135deg,var(--primary-orange),#ff8c56);
-      color:#fff;padding:18px;border-radius:16px;
-      box-shadow:0 10px 26px rgba(255,107,53,.25);
-    }
-    .fun-facts h3{font-size:18px;margin-bottom:10px;display:flex;gap:8px;align-items:center}
-    .fun-fact-text{font-size:14px;line-height:1.55}
-
-    .weather-widget{
-      margin-top:14px;background:linear-gradient(135deg,var(--accent-blue),#357abd);
-      color:#fff;padding:18px;border-radius:16px;box-shadow:0 10px 26px rgba(74,144,226,.25);
-    }
-    .temp-display{font-size:30px;font-weight:900;margin:4px 0 10px}
-    .forecast-grid{
-      display:grid;
-      grid-template-columns: 1fr;
-      gap:10px;
-      margin-top:10px;
-    }
-    .forecast-day{
-      background:rgba(255,255,255,.12);
-      border:1px solid rgba(255,255,255,.22);
-      border-radius:12px;
-      padding:10px;
-      font-size:13px;
-    }
-    .forecast-day .d{font-weight:900}
-    .forecast-day .row{opacity:.95;margin-top:4px}
-
-    .word-translator{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    @media (max-width: 800px){.word-translator{grid-template-columns:1fr}}
-    .word-result{
-      padding:10px 12px;border-radius:12px;
-      background:#f0f0f0;border-left:4px solid var(--primary-orange);
-      font-weight:900;color:var(--primary-orange);
-      display:none;margin-top:10px;
-    }
-    body.dark-mode .word-result{background:var(--primary-dark)}
-  </style>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css" />
 </head>
-
 <body>
-  <div class="header">
+  <header class="header">
     <div class="logo">News/Translate <span>by Kanamy</span></div>
-    <button class="theme-toggle" onclick="toggleTheme()"><i class="fas fa-moon"></i> Тема</button>
-  </div>
+    <button class="theme-toggle" id="themeBtn"><i class="fas fa-moon"></i> Тема</button>
+  </header>
 
-  <div class="container">
-    <div class="card">
-      <h1 class="translator-title">Умный переводчик</h1>
+  <main class="container">
+    <section class="card">
+      <h1 class="title">Умный переводчик</h1>
 
       <div class="tabs">
-        <button class="tab-btn active" onclick="switchTab('url', event)"><i class="fas fa-link"></i> Ссылка</button>
-        <button class="tab-btn" onclick="switchTab('text', event)"><i class="fas fa-file-alt"></i> Текст</button>
-        <button class="tab-btn" onclick="switchTab('word', event)"><i class="fas fa-language"></i> Слово</button>
-        <button class="tab-btn" onclick="switchTab('weather', event)"><i class="fas fa-cloud-sun"></i> Погода</button>
+        <button class="tab-btn active" data-tab="url"><i class="fas fa-link"></i> Ссылка</button>
+        <button class="tab-btn" data-tab="text"><i class="fas fa-file-alt"></i> Текст</button>
+        <button class="tab-btn" data-tab="word"><i class="fas fa-language"></i> Слово</button>
+        <button class="tab-btn" data-tab="weather"><i class="fas fa-cloud-sun"></i> Погода</button>
       </div>
 
-      <!-- URL TAB -->
       <div id="url-tab" class="tab-content">
-        <div class="input-group">
-          <input id="urlInput" class="input-field" placeholder="https://example.com" />
-          <button class="btn" onclick="translateUrl()"><i class="fas fa-globe"></i> Перевести</button>
+        <div class="input-row">
+          <input id="urlInput" class="input" placeholder="https://example.com" />
+          <button id="translateUrlBtn" class="btn"><i class="fas fa-globe"></i> Перевести</button>
         </div>
 
-        <div class="category-buttons">
-          <button class="category-btn" onclick="loadCategory('programming')"><i class="fas fa-code"></i> Программирование</button>
-          <button class="category-btn" onclick="loadCategory('history')"><i class="fas fa-history"></i> История</button>
-          <button class="category-btn" onclick="loadCategory('games')"><i class="fas fa-gamepad"></i> Игры</button>
-          <button class="category-btn" onclick="loadCategory('cinema')"><i class="fas fa-film"></i> Кино</button>
+        <div class="categories">
+          <button class="cat-btn" data-cat="programming"><i class="fas fa-code"></i> Программирование</button>
+          <button class="cat-btn" data-cat="history"><i class="fas fa-history"></i> История</button>
+          <button class="cat-btn" data-cat="games"><i class="fas fa-gamepad"></i> Игры</button>
+          <button class="cat-btn" data-cat="cinema"><i class="fas fa-film"></i> Кино</button>
         </div>
 
-        <div class="content-area">
+        <div class="layout">
           <div>
-            <div class="block-title">Статьи (нажми — вставится ссылка и переведётся)</div>
+            <div class="block-title">Статьи (карточки уходят вниз)</div>
             <div class="articles-grid" id="articlesGrid">
-              <div style="opacity:.75;font-size:14px;padding:8px 2px">Выбери категорию выше</div>
+              <div class="muted">Выбери категорию выше</div>
             </div>
 
-            <div id="contentArea">
+            <div id="contentArea" class="contentArea">
               <div class="loading"><div class="spinner"></div> Вставь ссылку или выбери статью</div>
             </div>
           </div>
 
-          <div>
-            <div class="fun-facts">
-              <h3><i class="fas fa-lightbulb"></i> Факт</h3>
-              <div class="fun-fact-text" id="funFactText">Первый веб-сайт создан в 1989 году!</div>
+          <aside class="sidebar">
+            <div class="fact">
+              <div class="fact-title"><i class="fas fa-lightbulb"></i> Факт</div>
+              <div id="factText">Первый веб-сайт создан в 1989 году!</div>
             </div>
 
-            <div class="weather-widget">
-              <h3 style="font-size:18px;margin-bottom:10px"><i class="fas fa-map-marker-alt"></i> Погода</h3>
-              <div id="weatherInfo">
-                <div class="temp-display">--°C</div>
-                <div style="opacity:.9">Загрузка...</div>
-              </div>
-              <div class="forecast-grid" id="weatherForecast"></div>
+            <div class="weather">
+              <div class="weather-title"><i class="fas fa-map-marker-alt"></i> Погода</div>
+              <div id="weatherNow" class="weather-now">Загрузка...</div>
+              <div id="weatherForecast" class="forecast"></div>
             </div>
-          </div>
+          </aside>
         </div>
       </div>
 
-      <!-- TEXT TAB -->
-      <div id="text-tab" class="tab-content" style="display:none;">
-        <div class="input-group">
-          <textarea id="textInput" class="input-field" placeholder="Введите текст..." style="min-height:150px"></textarea>
-        </div>
-        <button class="btn" style="width:100%;justify-content:center" onclick="translateText()">
-          <i class="fas fa-language"></i> Перевести текст
-        </button>
-        <div id="translatedTextArea" class="translated-content" style="margin-top:16px;display:none"></div>
+      <div id="text-tab" class="tab-content hidden">
+        <textarea id="textInput" class="input textarea" placeholder="Введите текст..."></textarea>
+        <button id="translateTextBtn" class="btn wide"><i class="fas fa-language"></i> Перевести текст</button>
+        <div id="textResult" class="result hidden"></div>
       </div>
 
-      <!-- WORD TAB -->
-      <div id="word-tab" class="tab-content" style="display:none;">
-        <div class="word-translator">
+      <div id="word-tab" class="tab-content hidden">
+        <div class="word-grid">
           <div>
-            <div style="font-weight:900;margin-bottom:10px">English → Русский</div>
-            <input class="input-field" placeholder="Введите английское слово..." onkeyup="translateWord(this.value,'en-ru')">
-            <div id="wordResult" class="word-result"></div>
+            <div class="label">English → Русский</div>
+            <input id="wordEn" class="input" placeholder="Введите английское слово...">
+            <div id="wordResEn" class="word-res hidden"></div>
           </div>
           <div>
-            <div style="font-weight:900;margin-bottom:10px">Русский → English</div>
-            <input class="input-field" placeholder="Введите русское слово..." onkeyup="translateWord(this.value,'ru-en')">
-            <div id="wordResultRu" class="word-result"></div>
+            <div class="label">Русский → English</div>
+            <input id="wordRu" class="input" placeholder="Введите русское слово...">
+            <div id="wordResRu" class="word-res hidden"></div>
           </div>
         </div>
       </div>
 
-      <!-- WEATHER TAB -->
-      <div id="weather-tab" class="tab-content" style="display:none;">
-        <div class="weather-widget">
-          <h3><i class="fas fa-map-marker-alt"></i> Погода в Москве</h3>
-          <div id="weatherInfoTab">
-            <div class="temp-display">--°C</div>
-            <div style="opacity:.9">Загрузка...</div>
-          </div>
-          <div class="forecast-grid" id="weatherForecastTab"></div>
+      <div id="weather-tab" class="tab-content hidden">
+        <div class="weather big">
+          <div class="weather-title"><i class="fas fa-map-marker-alt"></i> Погода в Москве</div>
+          <div id="weatherNowTab" class="weather-now">Загрузка...</div>
+          <div id="weatherForecastTab" class="forecast"></div>
         </div>
       </div>
-    </div>
-  </div>
 
-<script>
-  const funFacts = [
-    "JavaScript был создан за 10 дней в 1995 году!",
-    "Python получил имя от комедийного шоу Monty Python!",
-    "Node.js позволяет использовать JavaScript на серверах!",
-    "Git создан Линусом Торвальдсом, создателем Linux!",
-    "HTML начинался с очень маленького набора тегов!"
-  ];
+    </section>
+  </main>
 
-  function toggleTheme(){
-    document.body.classList.toggle('dark-mode');
-    localStorage.setItem('theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
-  }
-
-  window.addEventListener('DOMContentLoaded', () => {
-    const saved = localStorage.getItem('theme');
-    if (saved === 'dark') document.body.classList.add('dark-mode');
-
-    changeFunFact();
-    setInterval(changeFunFact, 15000);
-
-    updateWeatherAll();
-  });
-
-  function switchTab(tab, event){
-    event.preventDefault();
-    document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
-    document.getElementById(tab + '-tab').style.display = 'block';
-
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    event.target.closest('.tab-btn').classList.add('active');
-
-    if (tab === 'weather') updateWeatherAll();
-  }
-
-  function changeFunFact(){
-    document.getElementById('funFactText').textContent =
-      funFacts[Math.floor(Math.random() * funFacts.length)];
-  }
-
-  function escapeHtml(str){
-    return String(str)
-      .replaceAll('&','&amp;')
-      .replaceAll('<','&lt;')
-      .replaceAll('>','&gt;')
-      .replaceAll('"','&quot;')
-      .replaceAll("'","&#039;");
-  }
-
-  function showLoading(){
-    document.getElementById('contentArea').innerHTML = `
-      <div class="loading"><div class="spinner"></div> Загружаем и переводим...</div>
-    `;
-  }
-
-  function showError(msg){
-    document.getElementById('contentArea').innerHTML = `
-      <div class="translated-content">
-        <h3 style="color:var(--primary-orange)">Ошибка</h3>
-        <p>${escapeHtml(msg)}</p>
-      </div>
-    `;
-  }
-
-  function speak(text){
-    try{
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(String(text || ''));
-      u.lang = 'ru-RU';
-      u.rate = 0.95;
-      window.speechSynthesis.speak(u);
-    }catch{}
-  }
-
-  // -------- Translate URL ----------
-  async function translateUrl(){
-    const url = document.getElementById('urlInput').value.trim();
-    if (!url) return alert('Введите URL');
-
-    showLoading();
-
-    try{
-      const r = await fetch('/api/translate-url', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ url })
-      });
-      const data = await r.json();
-
-      if (!data.success) return showError(data.error || 'Не удалось перевести');
-
-      document.getElementById('contentArea').innerHTML = `
-        <div class="audio-player">
-          <button onclick="speak(${JSON.stringify(data.title)})"><i class="fas
+  <script src="/app.js"></script>
+</body>
+</html>
