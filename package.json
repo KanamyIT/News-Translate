@@ -1,0 +1,16 @@
+{
+  "name": "news-translate-kanamy",
+  "version": "1.0.0",
+  "description": "News translation website with weather, programming articles and more",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["news", "translate", "weather"],
+  "author": "Kanamy",
+  "license": "MIT",
+  "engines": {
+    "node": "18.x"
+  }
+}
