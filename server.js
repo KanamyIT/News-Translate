@@ -3,10 +3,7 @@ try {
   const { Blob, File } = require('buffer');
   if (typeof globalThis.Blob === 'undefined') globalThis.Blob = Blob;
   if (typeof globalThis.File === 'undefined') globalThis.File = File;
-} catch (e) {
-  // ignore
-}
-
+} catch { /* ignore */ }
 
 const express = require('express');
 const cors = require('cors');
@@ -17,7 +14,7 @@ require('dotenv').config();
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
-const HOST = process.env.HOST || '0.0.0.0'; // Render: обязательно 0.0.0.0
+const HOST = process.env.HOST || '0.0.0.0';
 
 // ==================== MIDDLEWARE ====================
 app.use(cors({ origin: '*' }));
@@ -30,9 +27,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ==================== TRANSLATION SYSTEM ====================
 
-// Кэш переводов (простая защита от разрастания)
+// Cache
 const trCache = new Map();
 const TR_CACHE_MAX = 2500;
+
 function cacheSet(key, val) {
   trCache.set(key, val);
   if (trCache.size > TR_CACHE_MAX) {
@@ -41,10 +39,9 @@ function cacheSet(key, val) {
   }
 }
 
-// Лимитер запросов к MyMemory (чтобы не ловить rate limit)
+// Rate limit (MyMemory)
 const TR_CONCURRENCY = 2;
 const TR_MIN_INTERVAL_MS = 140;
-
 let trActive = 0;
 let trLastStart = 0;
 const trQueue = [];
@@ -80,7 +77,6 @@ function limitTranslate(task) {
   });
 }
 
-// Перевод через MyMemory API
 async function myMemoryTranslate(text, from = 'en', to = 'ru') {
   const clean = String(text || '').trim();
   if (!clean) return clean;
@@ -99,21 +95,17 @@ async function myMemoryTranslate(text, from = 'en', to = 'ru') {
       });
 
       const status = Number(data?.responseStatus);
-      if (status && status !== 200) {
-        // 403 часто означает лимит/блок — возвращаем оригинал
-        return clean;
-      }
+      if (status && status !== 200) return clean;
 
       const translated = data?.responseData?.translatedText || clean;
       cacheSet(key, translated);
       return translated;
-    } catch (err) {
+    } catch {
       return clean;
     }
   });
 }
 
-// Разделение текста на части для перевода
 function splitText(text, maxLen = 480) {
   const s = String(text || '');
   if (s.length <= maxLen) return [s];
@@ -131,7 +123,6 @@ function splitText(text, maxLen = 480) {
   return parts;
 }
 
-// Перевод длинного текста
 async function translateLong(text, from = 'en', to = 'ru') {
   const chunks = splitText(text, 480);
   let out = '';
@@ -141,12 +132,10 @@ async function translateLong(text, from = 'en', to = 'ru') {
   return out;
 }
 
-// Проверка на кириллицу
 function hasCyrillic(s) {
   return /[А-Яа-яЁё]/.test(String(s || ''));
 }
 
-// Проверка на английский
 function looksEnglish(s) {
   const t = String(s || '').trim();
   if (!t) return false;
@@ -154,7 +143,7 @@ function looksEnglish(s) {
   return /[A-Za-z]/.test(t);
 }
 
-// Защита кодовых токенов (чтобы не переводить имена функций/методов)
+// Protect code-ish tokens (works for both directions)
 const CODE_WORDS = [
   'print', 'printf', 'echo', 'console', 'console.log', 'document', 'window',
   'getElementById', 'querySelector', 'function', 'return', 'let', 'const',
@@ -166,9 +155,7 @@ function protectCodeTokens(text) {
   if (!src) return { protectedText: src, replacements: [] };
 
   const found = [];
-  const add = (v) => {
-    if (v && !found.includes(v)) found.push(v);
-  };
+  const add = (v) => { if (v && !found.includes(v)) found.push(v); };
 
   for (const m of src.matchAll(/\b[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*\b/g)) add(m[0]);
   for (const m of src.matchAll(/\b([A-Za-z_][A-Za-z0-9_]*)\s*\(/g)) add(m[1]);
@@ -197,14 +184,16 @@ function restoreCodeTokens(text, replacements) {
   return out;
 }
 
-// Основная функция перевода (EN -> RU если надо)
-async function toRuIfNeeded(text) {
+async function translateSmart(text, from, to) {
   const t = String(text || '').trim();
   if (!t) return t;
-  if (!looksEnglish(t)) return t;
+
+  // Heuristics to avoid trash calls
+  if (from === 'en' && to === 'ru' && !looksEnglish(t)) return t;
+  if (from === 'ru' && to === 'en' && !hasCyrillic(t)) return t;
 
   const { protectedText, replacements } = protectCodeTokens(t);
-  const tr = await translateLong(protectedText, 'en', 'ru');
+  const tr = await translateLong(protectedText, from, to);
   return restoreCodeTokens(tr, replacements);
 }
 
@@ -255,14 +244,9 @@ app.get('/api/image', async (req, res) => {
   }
 });
 
-// Translate URL endpoint
 function pickMainScope($, url) {
   const host = (() => {
-    try {
-      return new URL(url).hostname;
-    } catch {
-      return '';
-    }
+    try { return new URL(url).hostname; } catch { return ''; }
   })();
 
   if (host.includes('wikipedia.org')) {
@@ -271,10 +255,8 @@ function pickMainScope($, url) {
   }
 
   if (host.includes('w3schools.com')) {
-    // у W3Schools часто основной контент в #main
     const main = $('#main').first();
     if (main.length) return main;
-
     const w3 = $('.w3-main').first();
     if (w3.length) return w3;
   }
@@ -292,10 +274,10 @@ function cleanupScope($scope) {
   $scope.find('.reflist,.reference,.mw-references-wrap,ol.references,.navbox,.infobox').remove();
 }
 
-async function translateTextNodesCheerio($, $root, baseUrl) {
+async function translateTextNodesCheerio($, $root, baseUrl, from, to) {
   const SKIP = new Set(['script', 'style', 'noscript', 'pre', 'code', 'kbd', 'samp', 'var']);
 
-  // Обработка изображений
+  // Images -> proxy
   $root.find('img').each((_, el) => {
     const $img = $(el);
     const srcRaw = $img.attr('src') || $img.attr('data-src') || $img.attr('data-original');
@@ -309,7 +291,6 @@ async function translateTextNodesCheerio($, $root, baseUrl) {
     $img.attr('style', (String($img.attr('style') || '') + ';max-width:100%;height:auto;border-radius:12px;').trim());
   });
 
-  // 1) Собираем уникальные текстовые сегменты
   const nodes = $root.find('*').addBack().contents();
   const uniq = new Set();
 
@@ -324,29 +305,23 @@ async function translateTextNodesCheerio($, $root, baseUrl) {
     const t = raw.replace(/\s+/g, ' ').trim();
     if (!t) return;
 
-    // Отсекаем "похожее на код"
     if (/[{};<>]|=>|::|->|===|!==/.test(t)) return;
-
-    // Слишком короткие куски (типа "Next", "Home") часто мусорят
     if (t.length < 3) return;
+
+    // Only collect what we intend to translate
+    if (from === 'en' && to === 'ru' && !looksEnglish(t)) return;
+    if (from === 'ru' && to === 'en' && !hasCyrillic(t)) return;
 
     uniq.add(t);
   });
 
-  // Жёсткий лимит, чтобы не убить переводчик
   const list = Array.from(uniq).slice(0, 700);
   const map = new Map();
 
-  // 2) Переводим сегменты (с лимитером внутри myMemoryTranslate)
   for (const t of list) {
-    if (hasCyrillic(t)) {
-      map.set(t, t);
-      continue;
-    }
-    map.set(t, await toRuIfNeeded(t));
+    map.set(t, await translateSmart(t, from, to));
   }
 
-  // 3) Подставляем переводы обратно
   nodes.each((_, node) => {
     if (node.type !== 'text') return;
     const parentTag = node.parent && node.parent.name ? String(node.parent.name).toLowerCase() : '';
@@ -363,20 +338,20 @@ async function translateTextNodesCheerio($, $root, baseUrl) {
     node.data = lead + map.get(t) + trail;
   });
 
-  // Перевод alt и title для изображений
+  // Translate alt/title too
   const imgs = $root.find('img');
   for (let i = 0; i < imgs.length; i++) {
     const $img = $(imgs[i]);
     const alt = $img.attr('alt');
     const title = $img.attr('title');
-    if (alt && looksEnglish(alt)) $img.attr('alt', await toRuIfNeeded(alt));
-    if (title && looksEnglish(title)) $img.attr('title', await toRuIfNeeded(title));
+    if (alt) $img.attr('alt', await translateSmart(alt, from, to));
+    if (title) $img.attr('title', await translateSmart(title, from, to));
   }
 }
 
 app.post('/api/translate-url', async (req, res) => {
   try {
-    const { url } = req.body || {};
+    const { url, from = 'en', to = 'ru' } = req.body || {};
     if (!url) return res.status(400).json({ success: false, error: 'URL не предоставлен' });
 
     const response = await axios.get(url, {
@@ -402,9 +377,7 @@ app.post('/api/translate-url', async (req, res) => {
     const $scope = pickMainScope($, url);
     cleanupScope($scope);
 
-    // ✅ КРИТИЧНОЕ ИСПРАВЛЕНИЕ:
-    // Было: const $out = $('');  -> это пустой selection, append туда ничего не добавляет.
-    // Должно быть: реальный контейнер-элемент.
+    // ✅ FIX: real container
     const $out = $('<div id="extracted"></div>');
 
     const selector =
@@ -449,11 +422,13 @@ app.post('/api/translate-url', async (req, res) => {
       });
     }
 
-    await translateTextNodesCheerio($, $out, url);
+    await translateTextNodesCheerio($, $out, url, from, to);
+
+    const titleOut = await translateSmart(rawTitle, from, to);
 
     res.json({
       success: true,
-      title: await toRuIfNeeded(rawTitle),
+      title: titleOut,
       contentHtml: $out.html() || '\n\nНе удалось извлечь контент.',
       sourceUrl: url
     });
@@ -462,14 +437,12 @@ app.post('/api/translate-url', async (req, res) => {
   }
 });
 
-// Translate text endpoint
 app.post('/api/translate-text', async (req, res) => {
   try {
     const { text, from = 'en', to = 'ru' } = req.body || {};
     if (!text) return res.status(400).json({ success: false, error: 'Текст не предоставлен' });
 
     const translated = await translateLong(text, from, to);
-
     res.json({ success: true, translated });
   } catch (e) {
     res.status(500).json({ success: false, error: `Ошибка перевода: ${e.message || 'unknown'}` });
@@ -484,10 +457,7 @@ app.get('/api/weather', async (req, res) => {
       `https://wttr.in/${encodeURIComponent(city)}?format=j1&lang=ru`,
       {
         timeout: 15000,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Render; Node.js)',
-          'Accept-Language': 'ru'
-        }
+        headers: { 'User-Agent': 'Mozilla/5.0 (Render; Node.js)', 'Accept-Language': 'ru' }
       }
     );
 
@@ -512,7 +482,7 @@ app.get('/api/weather', async (req, res) => {
   }
 });
 
-// Articles endpoint (готовые RU заголовки — чтобы не зависеть от MyMemory)
+// Articles endpoint
 const ARTICLES = {
   programming: [
     { title: 'JavaScript Tutorial', url: 'https://www.w3schools.com/js/', titleRu: 'Учебник JavaScript' },
@@ -553,17 +523,13 @@ app.get('/api/articles/:category', async (req, res) => {
   }
 });
 
-// Health check
 app.get('/api/health', (req, res) => res.json({ success: true }));
 
-// Routes
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/translate', (req, res) => res.sendFile(path.join(__dirname, 'public', 'translate.html')));
 
-// 404
 app.use((req, res) => res.status(404).json({ success: false, error: 'Endpoint не найден' }));
 
-// Start server
 app.listen(PORT, HOST, () => {
   console.log(`✅ Сервер запущен на http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
   console.log(`📡 API доступен на http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}/api`);
