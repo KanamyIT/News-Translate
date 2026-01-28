@@ -1,1009 +1,504 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>News/Translate by Kanamy</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        :root {
-            --primary-orange: #ff6b35;
-            --primary-white: #ffffff;
-            --primary-dark: #1a1a1a;
-            --secondary-gray: #2d2d2d;
-            --text-light: #f0f0f0;
-            --text-dark: #333333;
-            --accent-blue: #4a90e2;
-        }
-
-        body {
-            font-family: 'Poppins', sans-serif;
-            background-color: var(--primary-white);
-            color: var(--text-dark);
-            transition: background-color 0.3s, color 0.3s;
-            overflow-x: hidden;
-        }
-
-        body.dark-mode {
-            background-color: var(--primary-dark);
-            color: var(--text-light);
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px 40px;
-            background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%);
-            border-bottom: 2px solid var(--primary-orange);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
-        body.dark-mode .header {
-            background: linear-gradient(135deg, var(--secondary-gray) 0%, var(--primary-dark) 100%);
-        }
-
-        .logo {
-            font-size: 28px;
-            font-weight: 800;
-            color: var(--primary-orange);
-        }
-
-        .logo span {
-            color: var(--text-dark);
-        }
-
-        body.dark-mode .logo span {
-            color: var(--primary-white);
-        }
-
-        .theme-toggle {
-            background: var(--primary-orange);
-            border: none;
-            color: white;
-            padding: 10px 15px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: background 0.3s;
-        }
-
-        .theme-toggle:hover {
-            background: #ff5a1f;
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 40px 20px;
-        }
-
-        .translator-section {
-            background: white;
-            border-radius: 15px;
-            padding: 40px;
-            margin-bottom: 40px;
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
-        }
-
-        body.dark-mode .translator-section {
-            background: var(--secondary-gray);
-        }
-
-        .translator-title {
-            font-size: 32px;
-            font-weight: 700;
-            margin-bottom: 25px;
-            color: var(--text-dark);
-        }
-
-        body.dark-mode .translator-title {
-            color: var(--primary-white);
-        }
-
-        .tabs {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 25px;
-            flex-wrap: wrap;
-        }
-
-        .tab-btn {
-            background: white;
-            border: 2px solid var(--primary-orange);
-            color: var(--primary-orange);
-            padding: 12px 25px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.2s;
-            font-size: 15px;
-        }
-
-        body.dark-mode .tab-btn {
-            background: var(--primary-dark);
-        }
-
-        .tab-btn.active {
-            background: var(--primary-orange);
-            color: white;
-        }
-
-        .tab-btn:hover {
-            background: var(--primary-orange);
-            color: white;
-        }
-
-        .input-group {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 25px;
-        }
-
-        .input-field {
-            flex: 1;
-            padding: 15px 20px;
-            border: 2px solid #ddd;
-            border-radius: 10px;
-            font-family: 'Poppins', sans-serif;
-            font-size: 15px;
-            background: white;
-            color: var(--text-dark);
-            transition: border 0.3s;
-        }
-
-        body.dark-mode .input-field {
-            background: var(--primary-dark);
-            color: var(--text-light);
-            border-color: #444;
-        }
-
-        .input-field:focus {
-            outline: none;
-            border-color: var(--primary-orange);
-        }
-
-        .btn {
-            padding: 15px 30px;
-            border: none;
-            border-radius: 10px;
-            background: var(--primary-orange);
-            color: white;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s;
-            font-family: 'Poppins', sans-serif;
-            font-size: 15px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            white-space: nowrap;
-        }
-
-        .btn:hover {
-            background: #ff5a1f;
-        }
-
-        .btn:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
-
-        .category-buttons {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin-bottom: 30px;
-        }
-
-        .category-btn {
-            padding: 15px 20px;
-            background: white;
-            border: 2px solid var(--primary-orange);
-            color: var(--primary-orange);
-            border-radius: 10px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.2s;
-            font-size: 15px;
-            text-align: center;
-        }
-
-        body.dark-mode .category-btn {
-            background: var(--primary-dark);
-        }
-
-        .category-btn:hover {
-            background: var(--primary-orange);
-            color: white;
-        }
-
-        .content-area {
-            display: grid;
-            grid-template-columns: 1fr 300px;
-            gap: 30px;
-            margin-top: 30px;
-        }
-
-        @media (max-width: 768px) {
-            .content-area {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .main-content {
-            background: white;
-            border-radius: 15px;
-            padding: 30px;
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
-            min-height: 500px;
-        }
-
-        body.dark-mode .main-content {
-            background: var(--secondary-gray);
-        }
-
-        .sidebar {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .articles-list {
-            max-height: 600px;
-            overflow-y: auto;
-        }
-
-        .article-item {
-            padding: 15px;
-            background: #f5f5f5;
-            border-radius: 10px;
-            margin-bottom: 12px;
-            cursor: pointer;
-            transition: all 0.2s;
-            border-left: 4px solid var(--primary-orange);
-        }
-
-        body.dark-mode .article-item {
-            background: var(--primary-dark);
-        }
-
-        .article-item:hover {
-            background: var(--primary-orange);
-            color: white;
-        }
-
-        .article-item h4 {
-            font-size: 14px;
-            margin-bottom: 5px;
-            font-weight: 600;
-        }
-
-        .article-item p {
-            font-size: 12px;
-            opacity: 0.7;
-        }
-
-        .fun-facts {
-            background: linear-gradient(135deg, var(--primary-orange), #ff8c56);
-            color: white;
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 8px 30px rgba(255, 107, 53, 0.3);
-        }
-
-        .fun-facts h3 {
-            font-size: 18px;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .fun-fact-text {
-            font-size: 14px;
-            line-height: 1.6;
-        }
-
-        .translated-content {
-            padding: 30px;
-            background: white;
-            border-radius: 15px;
-            line-height: 1.8;
-        }
-
-        body.dark-mode .translated-content {
-            background: var(--secondary-gray);
-        }
-
-        .translated-content h1,
-        .translated-content h2,
-        .translated-content h3 {
-            color: var(--primary-orange);
-            margin-top: 20px;
-            margin-bottom: 10px;
-        }
-
-        .translated-content p {
-            margin-bottom: 15px;
-            color: var(--text-dark);
-        }
-
-        body.dark-mode .translated-content p {
-            color: var(--text-light);
-        }
-
-        .translated-content code {
-            background: #f4f4f4;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-family: 'Courier New', monospace;
-            color: #d73a49;
-        }
-
-        body.dark-mode .translated-content code {
-            background: var(--primary-dark);
-            color: #ff8c56;
-        }
-
-        .translated-content pre {
-            background: #f4f4f4;
-            padding: 15px;
-            border-radius: 8px;
-            overflow-x: auto;
-            margin: 15px 0;
-            border-left: 4px solid var(--primary-orange);
-            font-size: 13px;
-        }
-
-        body.dark-mode .translated-content pre {
-            background: var(--primary-dark);
-        }
-
-        .audio-player {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin-bottom: 20px;
-            padding: 15px;
-            background: #f0f0f0;
-            border-radius: 10px;
-        }
-
-        body.dark-mode .audio-player {
-            background: var(--primary-dark);
-        }
-
-        .audio-player button {
-            background: var(--primary-orange);
-            border: none;
-            color: white;
-            padding: 10px 15px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: background 0.2s;
-        }
-
-        .audio-player button:hover {
-            background: #ff5a1f;
-        }
-
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid var(--primary-orange);
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .loading {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 15px;
-            padding: 40px;
-            color: var(--primary-orange);
-            font-weight: 600;
-        }
-
-        .weather-widget {
-            background: linear-gradient(135deg, var(--accent-blue), #357abd);
-            color: white;
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 8px 30px rgba(74, 144, 226, 0.3);
-        }
-
-        .weather-widget h3 {
-            margin-bottom: 15px;
-            font-size: 18px;
-        }
-
-        .weather-info {
-            display: grid;
-            gap: 10px;
-            font-size: 14px;
-        }
-
-        .temp-display {
-            font-size: 28px;
-            font-weight: 700;
-            margin-bottom: 10px;
-        }
-
-        .word-translator {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-        }
-
-        .word-translator input {
-            padding: 10px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            font-family: 'Poppins', sans-serif;
-        }
-
-        body.dark-mode .word-translator input {
-            background: var(--primary-dark);
-            color: var(--text-light);
-            border-color: #444;
-        }
-
-        .word-result {
-            padding: 12px;
-            background: #f0f0f0;
-            border-radius: 8px;
-            border-left: 4px solid var(--primary-orange);
-            font-weight: 600;
-            color: var(--primary-orange);
-        }
-
-        body.dark-mode .word-result {
-            background: var(--primary-dark);
-        }
-
-        .tab-content {
-            animation: fadeIn 0.3s ease;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        @media (max-width: 1024px) {
-            .header {
-                padding: 20px;
-            }
-
-            .container {
-                padding: 20px;
-            }
-
-            .translator-section {
-                padding: 20px;
-            }
-        }
-
-        @media (max-width: 768px) {
-            .logo {
-                font-size: 20px;
-            }
-
-            .tabs {
-                flex-direction: column;
-            }
-
-            .input-group {
-                flex-direction: column;
-            }
-
-            .category-buttons {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-
-        ::-webkit-scrollbar {
-            width: 10px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: #f1f1f1;
-        }
-
-        body.dark-mode ::-webkit-scrollbar-track {
-            background: var(--primary-dark);
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: var(--primary-orange);
-            border-radius: 5px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: #ff5a1f;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>News/Translate by Kanamy</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    :root{
+      --primary-orange:#ff6b35;
+      --primary-white:#ffffff;
+      --primary-dark:#1a1a1a;
+      --secondary-gray:#2d2d2d;
+      --text-light:#f0f0f0;
+      --text-dark:#333333;
+      --accent-blue:#4a90e2;
+      --border:#ddd;
+    }
+    body{
+      font-family:'Poppins',sans-serif;
+      background:var(--primary-white);
+      color:var(--text-dark);
+      transition:.25s;
+      overflow-x:hidden;
+    }
+    body.dark-mode{background:var(--primary-dark);color:var(--text-light);--border:#444}
+
+    .header{
+      display:flex;justify-content:space-between;align-items:center;
+      padding:18px 36px;
+      background:linear-gradient(135deg,#fff 0%,#f5f5f5 100%);
+      border-bottom:2px solid var(--primary-orange);
+      box-shadow:0 4px 15px rgba(0,0,0,.08);
+      position:sticky;top:0;z-index:10;
+    }
+    body.dark-mode .header{background:linear-gradient(135deg,var(--secondary-gray) 0%,var(--primary-dark) 100%)}
+    .logo{font-size:28px;font-weight:800;color:var(--primary-orange)}
+    .logo span{color:var(--text-dark)}
+    body.dark-mode .logo span{color:var(--primary-white)}
+    .theme-toggle{
+      background:var(--primary-orange);border:none;color:#fff;
+      padding:10px 14px;border-radius:10px;cursor:pointer;font-weight:800;
+      display:flex;gap:8px;align-items:center;
+    }
+    .theme-toggle:hover{background:#ff5a1f}
+
+    .container{max-width:1400px;margin:0 auto;padding:34px 18px}
+    .card{
+      background:#fff;border-radius:16px;
+      box-shadow:0 8px 30px rgba(0,0,0,.10);
+      padding:28px;
+    }
+    body.dark-mode .card{background:var(--secondary-gray);box-shadow:0 8px 30px rgba(0,0,0,.30)}
+
+    .translator-title{font-size:32px;font-weight:800;margin-bottom:18px}
+    .tabs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+    .tab-btn{
+      background:#fff;border:2px solid var(--primary-orange);
+      color:var(--primary-orange);
+      padding:12px 18px;border-radius:10px;cursor:pointer;font-weight:800;
+    }
+    body.dark-mode .tab-btn{background:var(--primary-dark)}
+    .tab-btn.active{background:var(--primary-orange);color:#fff}
+    .tab-btn:hover{background:var(--primary-orange);color:#fff}
+
+    .input-group{display:flex;gap:12px;margin-bottom:18px}
+    .input-field{
+      flex:1;padding:14px 16px;border:2px solid var(--border);
+      border-radius:12px;font-family:'Poppins',sans-serif;font-size:15px;
+      outline:none;background:#fff;color:var(--text-dark);
+    }
+    body.dark-mode .input-field{background:var(--primary-dark);color:var(--text-light);border-color:var(--border)}
+    .input-field:focus{border-color:var(--primary-orange)}
+    .btn{
+      padding:14px 18px;border:none;border-radius:12px;background:var(--primary-orange);
+      color:#fff;font-weight:900;cursor:pointer;display:flex;gap:8px;align-items:center;white-space:nowrap;
+    }
+    .btn:hover{background:#ff5a1f}
+
+    .category-buttons{
+      display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+      gap:12px;margin-bottom:16px;
+    }
+    .category-btn{
+      padding:14px 14px;background:#fff;border:2px solid var(--primary-orange);
+      color:var(--primary-orange);border-radius:12px;cursor:pointer;font-weight:900;
+      display:flex;gap:10px;justify-content:center;align-items:center;
+    }
+    body.dark-mode .category-btn{background:var(--primary-dark)}
+    .category-btn:hover{background:var(--primary-orange);color:#fff}
+
+    .content-area{
+      display:grid;grid-template-columns: 1fr 320px;
+      gap:18px;margin-top:10px;
+    }
+    @media (max-width: 900px){.content-area{grid-template-columns:1fr}}
+
+    .block-title{font-size:16px;font-weight:900;margin:6px 0 12px;color:var(--primary-orange)}
+
+    /* Горизонтальные статьи */
+    .articles-row{
+      display:flex;gap:14px;overflow:auto;padding-bottom:6px;
+      scroll-snap-type:x mandatory;
+    }
+    .article-card{
+      flex:0 0 300px;
+      scroll-snap-align:start;
+      border:2px solid var(--border);
+      border-radius:16px;
+      padding:16px;
+      background:#fff;
+      cursor:pointer;
+      transition:.2s;
+    }
+    body.dark-mode .article-card{background:var(--primary-dark);border-color:var(--border)}
+    .article-card:hover{
+      border-color:var(--primary-orange);
+      box-shadow:0 10px 24px rgba(255,107,53,.20);
+      transform:translateY(-2px);
+    }
+    .article-card h4{font-size:16px;line-height:1.25;margin-bottom:8px}
+    .article-card .meta{font-size:12px;opacity:.75;word-break:break-word}
+
+    .translated-content{
+      background:#fff;border-radius:16px;padding:22px;line-height:1.8;border:2px solid var(--border);
+    }
+    body.dark-mode .translated-content{background:var(--secondary-gray)}
+    .translated-content h1,.translated-content h2,.translated-content h3{color:var(--primary-orange);margin:16px 0 8px}
+    .translated-content p{margin:0 0 12px}
+    .translated-content pre{
+      background:#f4f4f4;padding:14px;border-radius:12px;overflow:auto;
+      border-left:4px solid var(--primary-orange);margin:12px 0;
+    }
+    body.dark-mode .translated-content pre{background:var(--primary-dark)}
+    .translated-content code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace}
+
+    .audio-player{
+      display:flex;gap:12px;align-items:center;
+      background:#f0f0f0;border-radius:12px;padding:12px;margin-bottom:12px;
+    }
+    body.dark-mode .audio-player{background:var(--primary-dark)}
+    .audio-player button{
+      background:var(--primary-orange);border:none;color:#fff;padding:10px 12px;border-radius:10px;cursor:pointer;font-weight:900;
+    }
+    .audio-player button:hover{background:#ff5a1f}
+
+    .loading{display:flex;gap:12px;align-items:center;justify-content:center;padding:46px;color:var(--primary-orange);font-weight:900}
+    .spinner{
+      width:40px;height:40px;border-radius:50%;
+      border:4px solid #f3f3f3;border-top:4px solid var(--primary-orange);
+      animation:spin 1s linear infinite;
+    }
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    .fun-facts{
+      background:linear-gradient(135deg,var(--primary-orange),#ff8c56);
+      color:#fff;padding:18px;border-radius:16px;
+      box-shadow:0 10px 26px rgba(255,107,53,.25);
+    }
+    .fun-facts h3{font-size:18px;margin-bottom:10px;display:flex;gap:8px;align-items:center}
+    .fun-fact-text{font-size:14px;line-height:1.55}
+
+    .weather-widget{
+      margin-top:14px;background:linear-gradient(135deg,var(--accent-blue),#357abd);
+      color:#fff;padding:18px;border-radius:16px;box-shadow:0 10px 26px rgba(74,144,226,.25);
+    }
+    .temp-display{font-size:30px;font-weight:900;margin:4px 0 10px}
+
+    .word-translator{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media (max-width: 800px){.word-translator{grid-template-columns:1fr}}
+    .word-result{
+      padding:10px 12px;border-radius:12px;
+      background:#f0f0f0;border-left:4px solid var(--primary-orange);
+      font-weight:900;color:var(--primary-orange);
+      display:none;margin-top:10px;
+    }
+    body.dark-mode .word-result{background:var(--primary-dark)}
+  </style>
 </head>
+
 <body>
-    <div class="header">
-        <div class="logo">News/Translate <span>by Kanamy</span></div>
-        <button class="theme-toggle" onclick="toggleTheme()">
-            <i class="fas fa-moon"></i> Тема
-        </button>
-    </div>
+  <div class="header">
+    <div class="logo">News/Translate <span>by Kanamy</span></div>
+    <button class="theme-toggle" onclick="toggleTheme()">
+      <i class="fas fa-moon"></i> Тема
+    </button>
+  </div>
 
-    <div class="container">
-        <div class="translator-section">
-            <h1 class="translator-title">Умный переводчик</h1>
-            
-            <div class="tabs">
-                <button class="tab-btn active" onclick="switchTab('url', event)">
-                    <i class="fas fa-link"></i> Ссылка
-                </button>
-                <button class="tab-btn" onclick="switchTab('text', event)">
-                    <i class="fas fa-file-alt"></i> Текст
-                </button>
-                <button class="tab-btn" onclick="switchTab('word', event)">
-                    <i class="fas fa-language"></i> Слово
-                </button>
-                <button class="tab-btn" onclick="switchTab('weather', event)">
-                    <i class="fas fa-cloud-sun"></i> Погода
-                </button>
-            </div>
+  <div class="container">
+    <div class="card">
+      <h1 class="translator-title">Умный переводчик</h1>
 
-            <!-- URL Tab -->
-            <div id="url-tab" class="tab-content">
-                <div class="input-group">
-                    <input type="text" id="urlInput" class="input-field" placeholder="https://example.com">
-                    <button class="btn" onclick="translateUrl()">
-                        <i class="fas fa-globe"></i> Перевести
-                    </button>
-                </div>
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('url', event)"><i class="fas fa-link"></i> Ссылка</button>
+        <button class="tab-btn" onclick="switchTab('text', event)"><i class="fas fa-file-alt"></i> Текст</button>
+        <button class="tab-btn" onclick="switchTab('word', event)"><i class="fas fa-language"></i> Слово</button>
+        <button class="tab-btn" onclick="switchTab('weather', event)"><i class="fas fa-cloud-sun"></i> Погода</button>
+      </div>
 
-                <div class="category-buttons">
-                    <button class="category-btn" onclick="loadCategory('programming')">
-                        <i class="fas fa-code"></i> Программирование
-                    </button>
-                    <button class="category-btn" onclick="loadCategory('history')">
-                        <i class="fas fa-history"></i> История
-                    </button>
-                    <button class="category-btn" onclick="loadCategory('games')">
-                        <i class="fas fa-gamepad"></i> Игры
-                    </button>
-                    <button class="category-btn" onclick="loadCategory('cinema')">
-                        <i class="fas fa-film"></i> Кино
-                    </button>
-                </div>
-
-                <div class="content-area">
-                    <div class="main-content" id="contentArea">
-                        <div class="loading">
-                            <div class="spinner"></div>
-                            Загрузите статью или выберите категорию
-                        </div>
-                    </div>
-
-                    <div class="sidebar">
-                        <div class="fun-facts">
-                            <h3><i class="fas fa-lightbulb"></i> Факт</h3>
-                            <div class="fun-fact-text" id="funFactText">
-                                Первый веб-сайт создан в 1989 году!
-                            </div>
-                        </div>
-
-                        <div style="background: white; border-radius: 15px; padding: 20px; box-shadow: 0 8px 30px rgba(0,0,0,0.1);">
-                            <h3 style="margin-bottom: 15px; color: var(--primary-orange); font-size: 16px;">Статьи</h3>
-                            <div class="articles-list" id="articlesList">
-                                <p style="color: #999; text-align: center; font-size: 13px;">Выберите категорию</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Text Tab -->
-            <div id="text-tab" class="tab-content" style="display: none;">
-                <div class="input-group">
-                    <textarea id="textInput" class="input-field" placeholder="Введите текст для перевода..." style="min-height: 150px; font-family: 'Poppins', sans-serif;"></textarea>
-                </div>
-                <button class="btn" onclick="translateText()" style="width: 100%; justify-content: center;">
-                    <i class="fas fa-language"></i> Перевести текст
-                </button>
-                <div class="translated-content" id="translatedTextArea" style="margin-top: 20px; display: none;"></div>
-            </div>
-
-            <!-- Word Tab -->
-            <div id="word-tab" class="tab-content" style="display: none;">
-                <div class="word-translator">
-                    <div>
-                        <label style="display: block; margin-bottom: 10px; font-weight: 600;">English → Русский</label>
-                        <input type="text" id="wordInput" class="input-field" placeholder="Введите слово..." onkeyup="translateWord(this.value, 'en-ru')">
-                        <div id="wordResult" class="word-result" style="margin-top: 10px; display: none;"></div>
-                    </div>
-                    <div>
-                        <label style="display: block; margin-bottom: 10px; font-weight: 600;">Русский → English</label>
-                        <input type="text" id="wordInputRu" class="input-field" placeholder="Введите слово..." onkeyup="translateWord(this.value, 'ru-en')">
-                        <div id="wordResultRu" class="word-result" style="margin-top: 10px; display: none;"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Weather Tab -->
-            <div id="weather-tab" class="tab-content" style="display: none;">
-                <div class="weather-widget">
-                    <h3><i class="fas fa-map-marker-alt"></i> Погода в Москве</h3>
-                    <div class="weather-info" id="weatherInfo">
-                        <p>Загрузка...</p>
-                    </div>
-                </div>
-            </div>
+      <!-- URL TAB -->
+      <div id="url-tab" class="tab-content">
+        <div class="input-group">
+          <input id="urlInput" class="input-field" placeholder="https://example.com" />
+          <button class="btn" onclick="translateUrl()"><i class="fas fa-globe"></i> Перевести</button>
         </div>
+
+        <div class="category-buttons">
+          <button class="category-btn" onclick="loadCategory('programming')"><i class="fas fa-code"></i> Программирование</button>
+          <button class="category-btn" onclick="loadCategory('history')"><i class="fas fa-history"></i> История</button>
+          <button class="category-btn" onclick="loadCategory('games')"><i class="fas fa-gamepad"></i> Игры</button>
+          <button class="category-btn" onclick="loadCategory('cinema')"><i class="fas fa-film"></i> Кино</button>
+        </div>
+
+        <div class="content-area">
+          <div>
+            <div class="block-title">Статьи (нажми — вставится ссылка и переведётся)</div>
+            <div class="articles-row" id="articlesRow">
+              <div style="opacity:.75;font-size:14px;padding:8px 2px">Выбери категорию выше</div>
+            </div>
+
+            <div style="height:14px"></div>
+
+            <div id="contentArea">
+              <div class="loading">
+                <div class="spinner"></div>
+                Вставь ссылку или выбери статью
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="fun-facts">
+              <h3><i class="fas fa-lightbulb"></i> Факт</h3>
+              <div class="fun-fact-text" id="funFactText">Первый веб-сайт создан в 1989 году!</div>
+            </div>
+
+            <div class="weather-widget">
+              <h3 style="font-size:18px;margin-bottom:10px"><i class="fas fa-map-marker-alt"></i> Погода</h3>
+              <div id="weatherInfo">
+                <div class="temp-display">--°C</div>
+                <div style="opacity:.9">Загрузка...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TEXT TAB -->
+      <div id="text-tab" class="tab-content" style="display:none;">
+        <div class="input-group">
+          <textarea id="textInput" class="input-field" placeholder="Введите текст..." style="min-height:150px"></textarea>
+        </div>
+        <button class="btn" style="width:100%;justify-content:center" onclick="translateText()">
+          <i class="fas fa-language"></i> Перевести текст
+        </button>
+        <div id="translatedTextArea" class="translated-content" style="margin-top:16px;display:none"></div>
+      </div>
+
+      <!-- WORD TAB -->
+      <div id="word-tab" class="tab-content" style="display:none;">
+        <div class="word-translator">
+          <div>
+            <div style="font-weight:900;margin-bottom:10px">English → Русский</div>
+            <input class="input-field" placeholder="Введите английское слово..." onkeyup="translateWord(this.value,'en-ru')">
+            <div id="wordResult" class="word-result"></div>
+          </div>
+          <div>
+            <div style="font-weight:900;margin-bottom:10px">Русский → English</div>
+            <input class="input-field" placeholder="Введите русское слово..." onkeyup="translateWord(this.value,'ru-en')">
+            <div id="wordResultRu" class="word-result"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- WEATHER TAB -->
+      <div id="weather-tab" class="tab-content" style="display:none;">
+        <div class="weather-widget">
+          <h3><i class="fas fa-map-marker-alt"></i> Погода в Москве</h3>
+          <div id="weatherInfoTab">
+            <div class="temp-display">--°C</div>
+            <div style="opacity:.9">Загрузка...</div>
+          </div>
+        </div>
+      </div>
     </div>
+  </div>
 
-    <script>
-        const funFacts = [
-            "JavaScript был создан за 10 дней в 1995 году!",
-            "Python получил имя от комедийного шоу Monty Python!",
-            "React был создан Facebook для оптимизации.",
-            "Node.js позволяет использовать JavaScript на серверах!",
-            "Git создан Линусом Торвальдсом, создателем Linux!",
-            "HTML было всего 18 тегов в начале!",
-            "CSS не имел версий до CSS3!",
-            "Docker контейнеризирует приложения!",
-            "Kubernetes автоматизирует развертывание контейнеров!",
-            "Первый сайт всё ещё существует в Интернете архиве!"
-        ];
+<script>
+  const funFacts = [
+    "JavaScript был создан за 10 дней в 1995 году!",
+    "Python получил имя от комедийного шоу Monty Python!",
+    "Node.js позволяет использовать JavaScript на серверах!",
+    "Git создан Линусом Торвальдсом, создателем Linux!",
+    "HTML начинался с очень маленького набора тегов!"
+  ];
 
-        const articles = {
-            programming: [
-                { title: "JavaScript для начинающих", url: "https://www.w3schools.com/js/" },
-                { title: "Python основы", url: "https://www.w3schools.com/python/" },
-                { title: "HTML и CSS", url: "https://www.w3schools.com/html/" },
-                { title: "React документация", url: "https://react.dev/" },
-                { title: "Node.js гайд", url: "https://nodejs.org/en/docs/" }
-            ],
-            history: [
-                { title: "Древний Рим", url: "https://www.britannica.com/place/ancient-rome" },
-                { title: "Мировая история", url: "https://www.britannica.com/history" },
-                { title: "Второй мир", url: "https://www.britannica.com/event/World-War-II" },
-                { title: "Древний Египет", url: "https://www.britannica.com/place/ancient-egypt" },
-                { title: "Средние века", url: "https://www.britannica.com/event/Middle-Ages" }
-            ],
-            games: [
-                { title: "Игровая история", url: "https://www.britannica.com/technology/video-game" },
-                { title: "Game Design", url: "https://gameprogrammingpatterns.com/" },
-                { title: "Игровые движки", url: "https://www.unrealengine.com/" },
-                { title: "Киберспорт", url: "https://www.britannica.com/topic/esports" },
-                { title: "Геймдев", url: "https://www.gamedev.net/" }
-            ],
-            cinema: [
-                { title: "История кино", url: "https://www.britannica.com/technology/motion-picture" },
-                { title: "Кинематография", url: "https://www.britannica.com/art/film" },
-                { title: "Режиссура", url: "https://www.britannica.com/art/film-directing" },
-                { title: "Киноиндустрия", url: "https://www.britannica.com/topic/Hollywood" },
-                { title: "Мировое кино", url: "https://www.britannica.com/art/world-cinema" }
-            ]
-        };
+  function toggleTheme(){
+    document.body.classList.toggle('dark-mode');
+    localStorage.setItem('theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
+  }
 
-        function toggleTheme() {
-            document.body.classList.toggle('dark-mode');
-            localStorage.setItem('theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
-        }
+  window.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorage.getItem('theme');
+    if (saved === 'dark') document.body.classList.add('dark-mode');
 
-        window.addEventListener('DOMContentLoaded', () => {
-            const savedTheme = localStorage.getItem('theme');
-            if (savedTheme === 'dark') {
-                document.body.classList.add('dark-mode');
-            }
-            updateWeather();
-            changeFunFact();
-            setInterval(changeFunFact, 15000);
-        });
+    changeFunFact();
+    setInterval(changeFunFact, 15000);
 
-        function switchTab(tab, event) {
-            event.preventDefault();
-            const tabs = document.querySelectorAll('.tab-content');
-            tabs.forEach(t => t.style.display = 'none');
-            
-            document.getElementById(tab + '-tab').style.display = 'block';
+    updateWeatherWidgets();
+  });
 
-            const btns = document.querySelectorAll('.tab-btn');
-            btns.forEach(b => b.classList.remove('active'));
-            event.target.closest('.tab-btn').classList.add('active');
+  function switchTab(tab, event){
+    event.preventDefault();
+    document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
+    document.getElementById(tab + '-tab').style.display = 'block';
 
-            if (tab === 'weather') {
-                updateWeather();
-            }
-        }
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    event.target.closest('.tab-btn').classList.add('active');
 
-        async function translateUrl() {
-            const url = document.getElementById('urlInput').value;
-            if (!url) {
-                alert('Введите URL');
-                return;
-            }
+    if (tab === 'weather') updateWeatherWidgets();
+  }
 
-            showLoading();
+  function changeFunFact(){
+    document.getElementById('funFactText').textContent =
+      funFacts[Math.floor(Math.random() * funFacts.length)];
+  }
 
-            try {
-                const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
-                const data = await response.json();
-                
-                if (data.status && data.status.http_code === 200) {
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(data.contents, 'text/html');
-                    
-                    let title = doc.querySelector('h1')?.textContent || 
-                               doc.querySelector('title')?.textContent || 
-                               'Статья';
-                    
-                    let content = '';
-                    const paragraphs = doc.querySelectorAll('p');
-                    paragraphs.forEach(p => {
-                        if (p.textContent.length > 20) {
-                            content += '<p>' + p.textContent + '</p>';
-                        }
-                    });
+  function escapeHtml(str){
+    return String(str)
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;')
+      .replaceAll('"','&quot;')
+      .replaceAll("'","&#039;");
+  }
 
-                    if (!content) {
-                        content = '<p>Содержимое не загружено</p>';
-                    }
+  function showLoading(){
+    document.getElementById('contentArea').innerHTML = `
+      <div class="loading">
+        <div class="spinner"></div>
+        Загружаем и переводим...
+      </div>
+    `;
+  }
 
-                    const translatedTitle = await simpleTranslate(title);
-                    const translatedContent = await simpleTranslate(content);
+  function showError(msg){
+    document.getElementById('contentArea').innerHTML = `
+      <div class="translated-content">
+        <h3 style="color:var(--primary-orange)">Ошибка</h3>
+        <p>${escapeHtml(msg)}</p>
+      </div>
+    `;
+  }
 
-                    displayContent(translatedTitle, translatedContent);
-                    speak(translatedTitle);
-                } else {
-                    showError('Не удалось загрузить сайт');
-                }
-            } catch (error) {
-                showError('Ошибка: ' + error.message);
-            }
-        }
+  function speak(text){
+    try{
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(String(text || ''));
+      u.lang = 'ru-RU';
+      u.rate = 0.95;
+      window.speechSynthesis.speak(u);
+    }catch{}
+  }
 
-        async function translateText() {
-            const text = document.getElementById('textInput').value;
-            if (!text) {
-                alert('Введите текст');
-                return;
-            }
+  // ✅ Перевод теперь идёт через наш сервер, без allorigins
+  async function translateUrl(){
+    const url = document.getElementById('urlInput').value.trim();
+    if (!url) return alert('Введите URL');
 
-            try {
-                const translated = await simpleTranslate(text);
-                const resultArea = document.getElementById('translatedTextArea');
-                resultArea.innerHTML = `<h3 style="color: var(--primary-orange); margin-bottom: 15px;">Перевод:</h3><p>${translated}</p>`;
-                resultArea.style.display = 'block';
-                speak(translated);
-            } catch (error) {
-                alert('Ошибка: ' + error.message);
-            }
-        }
+    showLoading();
 
-        const dictionary = {
-            'hello': 'привет',
-            'world': 'мир',
-            'code': 'код',
-            'programming': 'программирование',
-            'function': 'функция',
-            'variable': 'переменная',
-            'database': 'база данных',
-            'server': 'сервер',
-            'client': 'клиент',
-            'network': 'сеть',
-            'internet': 'интернет',
-            'website': 'веб-сайт',
-            'application': 'приложение',
-            'developer': 'разработчик',
-            'technology': 'технология',
-            'computer': 'компьютер',
-            'software': 'программное обеспечение',
-            'hardware': 'оборудование',
-            'data': 'данные',
-            'algorithm': 'алгоритм',
-            'the': 'the',
-            'is': 'это',
-            'are': 'есть',
-            'to': 'к/для',
-            'of': 'из',
-            'and': 'и',
-            'or': 'или',
-            'but': 'но',
-            'in': 'в',
-            'on': 'на',
-            'at': 'в',
-            'for': 'для',
-            'with': 'с',
-            'from': 'из',
-            'by': 'по',
-            'this': 'это',
-            'that': 'то',
-            'which': 'который',
-            'who': 'кто',
-            'what': 'что',
-            'when': 'когда',
-            'where': 'где',
-            'why': 'почему',
-            'how': 'как',
-            'game': 'игра',
-            'play': 'играть',
-            'player': 'игрок',
-            'movie': 'фильм',
-            'film': 'фильм',
-            'cinema': 'кинотеатр',
-            'actor': 'актер',
-            'history': 'история',
-            'historical': 'исторический',
-            'ancient': 'древний',
-            'modern': 'современный',
-            'new': 'новый',
-            'old': 'старый',
-            'good': 'хороший',
-            'bad': 'плохой',
-            'big': 'большой',
-            'small': 'маленький',
-            'fast': 'быстрый',
-            'slow': 'медленный',
-            'hot': 'горячий',
-            'cold': 'холодный',
-            'high': 'высокий',
-            'low': 'низкий',
-            'right': 'право/правый',
-            'left': 'левый',
-            'day': 'день',
-            'night': 'ночь',
-            'year': 'год',
-            'month': 'месяц',
-            'week': 'неделя',
-            'hour': 'час',
-            'minute': 'минута',
-            'second': 'секунда'
-        };
+    try{
+      const r = await fetch('/api/translate-url', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ url })
+      });
+      const data = await r.json();
 
-        function translateWord(word, direction) {
-            if (!word.trim()) return;
+      if (!data.success) return showError(data.error || 'Не удалось перевести');
 
-            const lowerWord = word.toLowerCase().trim();
-            const resultId = direction === 'en-ru' ? 'wordResult' : 'wordResultRu';
-            const resultElement = document.getElementById(resultId);
+      document.getElementById('contentArea').innerHTML = `
+        <div class="audio-player">
+          <button onclick="speak(${JSON.stringify(data.title)})"><i class="fas fa-volume-up"></i> Озвучить</button>
+          <div style="font-weight:900">Заголовок: ${escapeHtml(data.title)}</div>
+        </div>
+        <div class="translated-content">${data.contentHtml}</div>
+      `;
 
-            if (direction === 'en-ru') {
-                const translation = dictionary[lowerWord];
-                if (translation) {
-                    resultElement.innerHTML = `<strong>${translation}</strong>`;
-                    resultElement.style.display = 'block';
-                } else {
-                    resultElement.innerHTML = `Слово не найдено`;
-                    resultElement.style.display = 'block';
-                }
-            } else if (direction === 'ru-en') {
-                for (const [eng, rus] of Object.entries(dictionary)) {
-                    if (rus === lowerWord) {
-                        resultElement.innerHTML = `<strong>${eng}</strong>`;
-                        resultElement.style.display = 'block';
-                        return;
-                    }
-                }
-                resultElement.innerHTML = `Слово не найдено`;
-                resultElement.style.display = 'block';
-            }
-        }
+      speak(data.title);
+    }catch(e){
+      showError(e.message || 'Ошибка сети');
+    }
+  }
 
-        function loadCategory(category) {
-            const articlesList = document.getElementById('articlesList');
-            const categoryArticles = articles[category] || [];
+  async function translateText(){
+    const text = document.getElementById('textInput').value.trim();
+    if (!text) return alert('Введите текст');
 
-            articlesList.innerHTML = categoryArticles.map(article => `
-                <div class="article-item" onclick="loadArticle('${article.url}', '${article.title.replace(/'/g, "\\'")}')">
-                    <h4>${article.title}</h4>
-                    <p>${category}</p>
-                </div>
-            `).join('');
-        }
+    try{
+      const r = await fetch('/api/translate-text', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ text })
+      });
+      const data = await r.json();
+      if (!data.success) return alert(data.error || 'Ошибка');
 
-        function loadArticle(url, title) {
-            document.getElementById('urlInput').value = url;
-            translateUrl();
-        }
+      const area = document.getElementById('translatedTextArea');
+      area.style.display = 'block';
+      area.innerHTML = `<h3 style="color:var(--primary-orange);margin-bottom:10px">Перевод</h3><p>${escapeHtml(data.translated)}</p>`;
+      speak(data.translated);
+    }catch(e){
+      alert(e.message || 'Ошибка');
+    }
+  }
 
-        function displayContent(title, content) {
-            const contentArea = document.getElementById('contentArea');
-            contentArea.innerHTML = `
-                <div class="audio-player">
-                    <button onclick="speak('${title.replace(/'/g, "\\'")}')" style="cursor: pointer;">
-                        <i class="fas fa-volume-up"></i> Озвучить
-                    </button>
-                    <span style="flex: 1; font-size: 14px;"><strong>${title}</strong></span>
-                </div>
-                <div class="translated-content">${content}</div>
-            `;
-        }
+  async function translateWord(word, direction){
+    const w = String(word || '').trim();
+    if (!w) return;
 
-        function showLoading() {
-            document.getElementById('contentArea').innerHTML = `
-                <div class="loading">
-                    <div class="spinner"></div>
-                    Загружаем и переводим...
-                </div>
-            `;
-        }
+    const resultId = direction === 'en-ru' ? 'wordResult' : 'wordResultRu';
+    const el = document.getElementById(resultId);
 
-        function showError(error) {
-            document.getElementById('contentArea').innerHTML = `
-                <div style="padding: 30px; text-align: center; color: #ff6b35;">
-                    <i class="fas fa-exclamation-circle" style="font-size: 40px;"></i>
-                    <h3 style="margin-top: 15px;">${error}</h3>
-                </div>
-            `;
-        }
+    try{
+      const r = await fetch('/api/translate-word', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ word: w, direction })
+      });
+      const data = await r.json();
+      el.style.display = 'block';
+      el.textContent = data.success ? data.translation : 'Не найдено';
+    }catch{
+      el.style.display = 'block';
+      el.textContent = 'Ошибка';
+    }
+  }
 
-        function speak(text) {
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'ru-RU';
-            utterance.rate = 0.9;
-            utterance.pitch = 1;
-            window.speechSynthesis.speak(utterance);
-        }
+  async function loadCategory(category){
+    const row = document.getElementById('articlesRow');
+    row.innerHTML = `<div style="opacity:.75;font-size:14px;padding:8px 2px">Загрузка статей...</div>`;
 
-        async function updateWeather() {
-            try {
-                const response = await fetch('https://wttr.in/?format=j1');
-                const data = await response.json();
-                const current = data.current_condition[0];
-                const location = data.nearest_area[0];
+    try{
+      const r = await fetch('/api/articles/' + category);
+      const data = await r.json();
+      const list = data.articles || [];
 
-                const weatherInfo = document.getElementById('weatherInfo');
-                weatherInfo.innerHTML = `
-                    <div class="temp-display">${current.temp_C}°C</div>
-                    <p><strong>Состояние:</strong> ${current.lang_ru[0].value}</p>
-                    <p><strong>Влажность:</strong> ${current.humidity}%</p>
-                    <p><strong>Ветер:</strong> ${current.windspeed_kmph} км/ч</p>
-                    <p><strong>Город:</strong> ${location.areaName[0].value}</p>
-                `;
-            } catch (error) {
-                const weatherInfo = document.getElementById('weatherInfo');
-                weatherInfo.innerHTML = `<p>Ошибка загрузки погоды</p>`;
-            }
-        }
+      if (!list.length){
+        row.innerHTML = `<div style="opacity:.75;font-size:14px;padding:8px 2px">Нет статей</div>`;
+        return;
+      }
 
-        function changeFunFact() {
-            const fact = funFacts[Math.floor(Math.random() * funFacts.length)];
-            document.getElementById('funFactText').textContent = fact;
-        }
+      row.innerHTML = list.map(a => `
+        <div class="article-card" onclick="loadArticle(${JSON.stringify(a.url)})">
+          <h4>${escapeHtml(a.title)}</h4>
+          <div class="meta">${escapeHtml(category)} • нажми чтобы открыть</div>
+          <div class="meta" style="margin-top:8px">${escapeHtml(a.url)}</div>
+        </div>
+      `).join('');
+    }catch(e){
+      row.innerHTML = `<div style="opacity:.75;font-size:14px;padding:8px 2px">Ошибка: ${escapeHtml(e.message || '')}</div>`;
+    }
+  }
 
-        async function simpleTranslate(text) {
-            let result = text;
-            
-            for (const [eng, rus] of Object.entries(dictionary)) {
-                const regex = new RegExp(`\\b${eng}\\b`, 'gi');
-                result = result.replace(regex, rus);
-            }
+  function loadArticle(url){
+    document.getElementById('urlInput').value = url;
+    translateUrl();
+  }
 
-            return result;
-        }
-    </script>
+  async function updateWeatherWidgets(){
+    await updateWeatherInto('weatherInfo');
+    await updateWeatherInto('weatherInfoTab');
+  }
+
+  // ✅ Погода теперь тоже через сервер (/api/weather), а не напрямую к wttr.in
+  async function updateWeatherInto(elementId){
+    const el = document.getElementById(elementId);
+    if (!el) return;
+
+    el.innerHTML = `<div class="temp-display">--°C</div><div style="opacity:.9">Загрузка...</div>`;
+
+    try{
+      const r = await fetch('/api/weather?city=Moscow');
+      const data = await r.json();
+      if (!data.success) throw new Error(data.error || 'weather');
+
+      el.innerHTML = `
+        <div class="temp-display">${Math.round(Number(data.tempC || 0))}°C</div>
+        <div style="opacity:.95"><b>Состояние:</b> ${escapeHtml(data.desc || '—')}</div>
+        <div style="opacity:.95"><b>Влажность:</b> ${escapeHtml(data.humidity || '—')}%</div>
+        <div style="opacity:.95"><b>Ветер:</b> ${escapeHtml(data.windKmph || '—')} км/ч</div>
+        <div style="opacity:.95"><b>Город:</b> ${escapeHtml(data.location || 'Москва')}</div>
+      `;
+    }catch{
+      el.innerHTML = `<div style="opacity:.9">Ошибка загрузки погоды</div>`;
+    }
+  }
+</script>
 </body>
 </html>
