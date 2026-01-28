@@ -21,7 +21,6 @@
             --text-light: #f0f0f0;
             --text-dark: #333333;
             --accent-blue: #4a90e2;
-            --border-color: #ddd;
         }
 
         body {
@@ -35,39 +34,29 @@
         body.dark-mode {
             background-color: var(--primary-dark);
             color: var(--text-light);
-            --border-color: #444;
         }
 
-        /* Header */
         .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             padding: 20px 40px;
-            background: linear-gradient(135deg, var(--primary-white) 0%, #f5f5f5 100%);
+            background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%);
             border-bottom: 2px solid var(--primary-orange);
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
             position: sticky;
             top: 0;
             z-index: 100;
-            animation: slideDown 0.5s ease;
         }
 
         body.dark-mode .header {
             background: linear-gradient(135deg, var(--secondary-gray) 0%, var(--primary-dark) 100%);
         }
 
-        @keyframes slideDown {
-            from { transform: translateY(-100%); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-
         .logo {
             font-size: 28px;
             font-weight: 800;
             color: var(--primary-orange);
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
-            letter-spacing: -1px;
         }
 
         .logo span {
@@ -78,12 +67,6 @@
             color: var(--primary-white);
         }
 
-        .header-controls {
-            display: flex;
-            gap: 20px;
-            align-items: center;
-        }
-
         .theme-toggle {
             background: var(--primary-orange);
             border: none;
@@ -91,45 +74,34 @@
             padding: 10px 15px;
             border-radius: 8px;
             cursor: pointer;
-            font-size: 18px;
-            transition: all 0.3s;
+            font-size: 16px;
+            font-weight: 600;
             display: flex;
             align-items: center;
             gap: 8px;
-            font-weight: 600;
+            transition: background 0.3s;
         }
 
         .theme-toggle:hover {
             background: #ff5a1f;
-            transform: scale(1.05);
-            box-shadow: 0 5px 15px rgba(255, 107, 53, 0.4);
         }
 
-        /* Main Container */
         .container {
             max-width: 1400px;
             margin: 0 auto;
             padding: 40px 20px;
         }
 
-        /* Translator Section */
         .translator-section {
             background: white;
             border-radius: 15px;
             padding: 40px;
             margin-bottom: 40px;
             box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
-            animation: fadeInUp 0.6s ease;
         }
 
         body.dark-mode .translator-section {
             background: var(--secondary-gray);
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
-        }
-
-        @keyframes fadeInUp {
-            from { transform: translateY(30px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
         }
 
         .translator-title {
@@ -158,24 +130,22 @@
             border-radius: 8px;
             cursor: pointer;
             font-weight: 600;
-            transition: all 0.3s;
+            transition: all 0.2s;
             font-size: 15px;
         }
 
         body.dark-mode .tab-btn {
             background: var(--primary-dark);
-            border-color: var(--primary-orange);
         }
 
         .tab-btn.active {
             background: var(--primary-orange);
             color: white;
-            box-shadow: 0 5px 15px rgba(255, 107, 53, 0.4);
         }
 
         .tab-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 5px 15px rgba(255, 107, 53, 0.3);
+            background: var(--primary-orange);
+            color: white;
         }
 
         .input-group {
@@ -187,13 +157,13 @@
         .input-field {
             flex: 1;
             padding: 15px 20px;
-            border: 2px solid var(--border-color);
+            border: 2px solid #ddd;
             border-radius: 10px;
             font-family: 'Poppins', sans-serif;
             font-size: 15px;
-            transition: all 0.3s;
             background: white;
             color: var(--text-dark);
+            transition: border 0.3s;
         }
 
         body.dark-mode .input-field {
@@ -205,8 +175,6 @@
         .input-field:focus {
             outline: none;
             border-color: var(--primary-orange);
-            box-shadow: 0 0 10px rgba(255, 107, 53, 0.3);
-            transform: scale(1.02);
         }
 
         .btn {
@@ -217,7 +185,7 @@
             color: white;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: background 0.2s;
             font-family: 'Poppins', sans-serif;
             font-size: 15px;
             display: flex;
@@ -228,24 +196,16 @@
 
         .btn:hover {
             background: #ff5a1f;
-            transform: translateY(-3px);
-            box-shadow: 0 8px 20px rgba(255, 107, 53, 0.4);
-        }
-
-        .btn:active {
-            transform: translateY(-1px);
         }
 
         .btn:disabled {
             background: #ccc;
             cursor: not-allowed;
-            transform: none;
         }
 
-        /* Category Buttons */
         .category-buttons {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             gap: 15px;
             margin-bottom: 30px;
         }
@@ -258,7 +218,7 @@
             border-radius: 10px;
             cursor: pointer;
             font-weight: 600;
-            transition: all 0.3s;
+            transition: all 0.2s;
             font-size: 15px;
             text-align: center;
         }
@@ -270,11 +230,8 @@
         .category-btn:hover {
             background: var(--primary-orange);
             color: white;
-            transform: translateY(-5px);
-            box-shadow: 0 8px 20px rgba(255, 107, 53, 0.3);
         }
 
-        /* Content Area */
         .content-area {
             display: grid;
             grid-template-columns: 1fr 300px;
@@ -306,7 +263,6 @@
             gap: 20px;
         }
 
-        /* Articles List */
         .articles-list {
             max-height: 600px;
             overflow-y: auto;
@@ -318,20 +274,17 @@
             border-radius: 10px;
             margin-bottom: 12px;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: all 0.2s;
             border-left: 4px solid var(--primary-orange);
         }
 
         body.dark-mode .article-item {
             background: var(--primary-dark);
-            border-color: var(--primary-orange);
         }
 
         .article-item:hover {
             background: var(--primary-orange);
             color: white;
-            transform: translateX(5px);
-            box-shadow: 0 4px 15px rgba(255, 107, 53, 0.3);
         }
 
         .article-item h4 {
@@ -345,7 +298,6 @@
             opacity: 0.7;
         }
 
-        /* Fun Facts */
         .fun-facts {
             background: linear-gradient(135deg, var(--primary-orange), #ff8c56);
             color: white;
@@ -365,16 +317,8 @@
         .fun-fact-text {
             font-size: 14px;
             line-height: 1.6;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
-            animation: fadeIn 0.8s ease;
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        /* Translated Content */
         .translated-content {
             padding: 30px;
             background: white;
@@ -423,13 +367,13 @@
             overflow-x: auto;
             margin: 15px 0;
             border-left: 4px solid var(--primary-orange);
+            font-size: 13px;
         }
 
         body.dark-mode .translated-content pre {
             background: var(--primary-dark);
         }
 
-        /* Audio Player */
         .audio-player {
             display: flex;
             align-items: center;
@@ -452,15 +396,13 @@
             border-radius: 8px;
             cursor: pointer;
             font-weight: 600;
-            transition: all 0.3s;
+            transition: background 0.2s;
         }
 
         .audio-player button:hover {
             background: #ff5a1f;
-            transform: scale(1.05);
         }
 
-        /* Loading Animation */
         .spinner {
             border: 4px solid #f3f3f3;
             border-top: 4px solid var(--primary-orange);
@@ -468,7 +410,6 @@
             width: 40px;
             height: 40px;
             animation: spin 1s linear infinite;
-            display: inline-block;
         }
 
         @keyframes spin {
@@ -486,7 +427,6 @@
             font-weight: 600;
         }
 
-        /* Weather Widget */
         .weather-widget {
             background: linear-gradient(135deg, var(--accent-blue), #357abd);
             color: white;
@@ -512,7 +452,6 @@
             margin-bottom: 10px;
         }
 
-        /* Word Translator */
         .word-translator {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -521,7 +460,7 @@
 
         .word-translator input {
             padding: 10px;
-            border: 2px solid var(--border-color);
+            border: 2px solid #ddd;
             border-radius: 8px;
             font-family: 'Poppins', sans-serif;
         }
@@ -545,7 +484,15 @@
             background: var(--primary-dark);
         }
 
-        /* Responsive */
+        .tab-content {
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
         @media (max-width: 1024px) {
             .header {
                 padding: 20px;
@@ -576,24 +523,8 @@
             .category-buttons {
                 grid-template-columns: repeat(2, 1fr);
             }
-
-            .header-controls {
-                flex-direction: column;
-                gap: 10px;
-            }
-
-            .theme-toggle {
-                width: 100%;
-                justify-content: center;
-            }
         }
 
-        /* Smooth Transitions */
-        * {
-            transition: background-color 0.3s, color 0.3s, border-color 0.3s;
-        }
-
-        /* Scrollbar Styling */
         ::-webkit-scrollbar {
             width: 10px;
         }
@@ -614,66 +545,31 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #ff5a1f;
         }
-
-        /* Floating Animation */
-        @keyframes float {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
-        }
-
-        .floating {
-            animation: float 3s ease-in-out infinite;
-        }
-
-        /* Particle Effect */
-        .particle {
-            position: fixed;
-            pointer-events: none;
-            font-size: 30px;
-            opacity: 0;
-        }
-
-        @keyframes particleFloat {
-            0% {
-                opacity: 1;
-                transform: translateY(0) translateX(0) scale(1);
-            }
-            100% {
-                opacity: 0;
-                transform: translateY(-100px) translateX(50px) scale(0);
-            }
-        }
     </style>
 </head>
 <body>
-    <!-- Header -->
     <div class="header">
         <div class="logo">News/Translate <span>by Kanamy</span></div>
-        <div class="header-controls">
-            <button class="theme-toggle" onclick="toggleTheme()">
-                <i class="fas fa-moon"></i> Тема
-            </button>
-        </div>
+        <button class="theme-toggle" onclick="toggleTheme()">
+            <i class="fas fa-moon"></i> Тема
+        </button>
     </div>
 
-    <!-- Main Container -->
     <div class="container">
-        <!-- Translator Section -->
         <div class="translator-section">
             <h1 class="translator-title">Умный переводчик</h1>
             
-            <!-- Tabs -->
             <div class="tabs">
-                <button class="tab-btn active" onclick="switchTab('url')">
+                <button class="tab-btn active" onclick="switchTab('url', event)">
                     <i class="fas fa-link"></i> Ссылка
                 </button>
-                <button class="tab-btn" onclick="switchTab('text')">
+                <button class="tab-btn" onclick="switchTab('text', event)">
                     <i class="fas fa-file-alt"></i> Текст
                 </button>
-                <button class="tab-btn" onclick="switchTab('word')">
+                <button class="tab-btn" onclick="switchTab('word', event)">
                     <i class="fas fa-language"></i> Слово
                 </button>
-                <button class="tab-btn" onclick="switchTab('weather')">
+                <button class="tab-btn" onclick="switchTab('weather', event)">
                     <i class="fas fa-cloud-sun"></i> Погода
                 </button>
             </div>
@@ -681,13 +577,12 @@
             <!-- URL Tab -->
             <div id="url-tab" class="tab-content">
                 <div class="input-group">
-                    <input type="text" id="urlInput" class="input-field" placeholder="https://example.com" value="https://www.wikipedia.org/wiki/Artificial_intelligence">
+                    <input type="text" id="urlInput" class="input-field" placeholder="https://example.com">
                     <button class="btn" onclick="translateUrl()">
-                        <i class="fas fa-globe"></i> Перевести сайт
+                        <i class="fas fa-globe"></i> Перевести
                     </button>
                 </div>
 
-                <!-- Category Buttons -->
                 <div class="category-buttons">
                     <button class="category-btn" onclick="loadCategory('programming')">
                         <i class="fas fa-code"></i> Программирование
@@ -703,9 +598,7 @@
                     </button>
                 </div>
 
-                <!-- Content Area -->
                 <div class="content-area">
-                    <!-- Main Content -->
                     <div class="main-content" id="contentArea">
                         <div class="loading">
                             <div class="spinner"></div>
@@ -713,21 +606,18 @@
                         </div>
                     </div>
 
-                    <!-- Sidebar -->
                     <div class="sidebar">
-                        <!-- Fun Facts -->
-                        <div class="fun-facts floating">
-                            <h3><i class="fas fa-lightbulb"></i> Интересный факт</h3>
+                        <div class="fun-facts">
+                            <h3><i class="fas fa-lightbulb"></i> Факт</h3>
                             <div class="fun-fact-text" id="funFactText">
-                                Первый веб-сайт был создан Тимом Бернерсом-Ли в 1989 году!
+                                Первый веб-сайт создан в 1989 году!
                             </div>
                         </div>
 
-                        <!-- Articles List -->
                         <div style="background: white; border-radius: 15px; padding: 20px; box-shadow: 0 8px 30px rgba(0,0,0,0.1);">
-                            <h3 style="margin-bottom: 15px; color: var(--primary-orange);">Статьи</h3>
+                            <h3 style="margin-bottom: 15px; color: var(--primary-orange); font-size: 16px;">Статьи</h3>
                             <div class="articles-list" id="articlesList">
-                                <p style="color: #999; text-align: center;">Выберите категорию</p>
+                                <p style="color: #999; text-align: center; font-size: 13px;">Выберите категорию</p>
                             </div>
                         </div>
                     </div>
@@ -750,12 +640,12 @@
                 <div class="word-translator">
                     <div>
                         <label style="display: block; margin-bottom: 10px; font-weight: 600;">English → Русский</label>
-                        <input type="text" id="wordInput" class="input-field" placeholder="Введите английское слово..." onkeyup="translateWord(this.value, 'en-ru')">
+                        <input type="text" id="wordInput" class="input-field" placeholder="Введите слово..." onkeyup="translateWord(this.value, 'en-ru')">
                         <div id="wordResult" class="word-result" style="margin-top: 10px; display: none;"></div>
                     </div>
                     <div>
                         <label style="display: block; margin-bottom: 10px; font-weight: 600;">Русский → English</label>
-                        <input type="text" id="wordInputRu" class="input-field" placeholder="Введите русское слово..." onkeyup="translateWord(this.value, 'ru-en')">
+                        <input type="text" id="wordInputRu" class="input-field" placeholder="Введите слово..." onkeyup="translateWord(this.value, 'ru-en')">
                         <div id="wordResultRu" class="word-result" style="margin-top: 10px; display: none;"></div>
                     </div>
                 </div>
@@ -766,69 +656,63 @@
                 <div class="weather-widget">
                     <h3><i class="fas fa-map-marker-alt"></i> Погода в Москве</h3>
                     <div class="weather-info" id="weatherInfo">
-                        <div class="temp-display">--°C</div>
                         <p>Загрузка...</p>
                     </div>
                 </div>
-                <div id="weatherExtended" style="margin-top: 20px; background: white; padding: 20px; border-radius: 15px; display: none;"></div>
             </div>
         </div>
     </div>
 
     <script>
-        // Fun Facts Array
         const funFacts = [
-            "Первый веб-сайт был создан Тимом Бернерсом-Ли в 1989 году!",
-            "JavaScript может работать на серверной стороне с помощью Node.js!",
-            "Python назван в честь комедийного шоу Monty Python!",
-            "Первый видеогеймер в истории был космический корабль Asteroids!",
-            "Интернет был создан как проект ARPANET в 1969 году!",
-            "Первый веб-браузер был текстовым!",
-            "Почта была одним из первых приложений в Интернете!",
-            "Домены .com начали продаваться в 1985 году!",
-            "Первое видео на YouTube было загружено в 2005 году!",
-            "AI уже использует более 80% кода на Python!"
+            "JavaScript был создан за 10 дней в 1995 году!",
+            "Python получил имя от комедийного шоу Monty Python!",
+            "React был создан Facebook для оптимизации.",
+            "Node.js позволяет использовать JavaScript на серверах!",
+            "Git создан Линусом Торвальдсом, создателем Linux!",
+            "HTML было всего 18 тегов в начале!",
+            "CSS не имел версий до CSS3!",
+            "Docker контейнеризирует приложения!",
+            "Kubernetes автоматизирует развертывание контейнеров!",
+            "Первый сайт всё ещё существует в Интернете архиве!"
         ];
 
         const articles = {
             programming: [
-                { title: "Основы JavaScript для начинающих", url: "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide" },
-                { title: "Python: полное руководство", url: "https://docs.python.org/" },
-                { title: "Как создать REST API", url: "https://restfulapi.net/" },
-                { title: "Docker для разработчиков", url: "https://docs.docker.com/" },
-                { title: "Асинхронное программирование", url: "https://developer.mozilla.org/en-US/docs/Learn/JavaScript/Asynchronous" }
+                { title: "JavaScript для начинающих", url: "https://www.w3schools.com/js/" },
+                { title: "Python основы", url: "https://www.w3schools.com/python/" },
+                { title: "HTML и CSS", url: "https://www.w3schools.com/html/" },
+                { title: "React документация", url: "https://react.dev/" },
+                { title: "Node.js гайд", url: "https://nodejs.org/en/docs/" }
             ],
             history: [
-                { title: "История Древнего Рима", url: "https://en.wikipedia.org/wiki/Ancient_Rome" },
-                { title: "Мировые войны", url: "https://en.wikipedia.org/wiki/World_War_I" },
-                { title: "История Америки", url: "https://en.wikipedia.org/wiki/History_of_the_United_States" },
-                { title: "Эпоха Возрождения", url: "https://en.wikipedia.org/wiki/Renaissance" },
-                { title: "История Китая", url: "https://en.wikipedia.org/wiki/History_of_China" }
+                { title: "Древний Рим", url: "https://www.britannica.com/place/ancient-rome" },
+                { title: "Мировая история", url: "https://www.britannica.com/history" },
+                { title: "Второй мир", url: "https://www.britannica.com/event/World-War-II" },
+                { title: "Древний Египет", url: "https://www.britannica.com/place/ancient-egypt" },
+                { title: "Средние века", url: "https://www.britannica.com/event/Middle-Ages" }
             ],
             games: [
-                { title: "История видеоигр", url: "https://en.wikipedia.org/wiki/Video_game" },
-                { title: "Game Design Patterns", url: "https://gameprogrammingpatterns.com/" },
-                { title: "Unity для разработчиков", url: "https://docs.unity.com/" },
-                { title: "Unreal Engine Tutorial", url: "https://docs.unrealengine.com/" },
-                { title: "Gamedev за 10 дней", url: "https://en.wikipedia.org/wiki/Game_development" }
+                { title: "Игровая история", url: "https://www.britannica.com/technology/video-game" },
+                { title: "Game Design", url: "https://gameprogrammingpatterns.com/" },
+                { title: "Игровые движки", url: "https://www.unrealengine.com/" },
+                { title: "Киберспорт", url: "https://www.britannica.com/topic/esports" },
+                { title: "Геймдев", url: "https://www.gamedev.net/" }
             ],
             cinema: [
-                { title: "История кинематографа", url: "https://en.wikipedia.org/wiki/History_of_film" },
-                { title: "Режиссура фильмов", url: "https://en.wikipedia.org/wiki/Film_directing" },
-                { title: "Киноиндустрия Голливуда", url: "https://en.wikipedia.org/wiki/Hollywood" },
-                { title: "Анимационное кино", url: "https://en.wikipedia.org/wiki/Animation" },
-                { title: "Техники кинопроизводства", url: "https://en.wikipedia.org/wiki/Filmmaking" }
+                { title: "История кино", url: "https://www.britannica.com/technology/motion-picture" },
+                { title: "Кинематография", url: "https://www.britannica.com/art/film" },
+                { title: "Режиссура", url: "https://www.britannica.com/art/film-directing" },
+                { title: "Киноиндустрия", url: "https://www.britannica.com/topic/Hollywood" },
+                { title: "Мировое кино", url: "https://www.britannica.com/art/world-cinema" }
             ]
         };
 
-        // Theme Toggle
         function toggleTheme() {
             document.body.classList.toggle('dark-mode');
             localStorage.setItem('theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
-            createParticleEffect();
         }
 
-        // Load saved theme
         window.addEventListener('DOMContentLoaded', () => {
             const savedTheme = localStorage.getItem('theme');
             if (savedTheme === 'dark') {
@@ -836,11 +720,11 @@
             }
             updateWeather();
             changeFunFact();
-            setInterval(changeFunFact, 10000);
+            setInterval(changeFunFact, 15000);
         });
 
-        // Tab Switching
-        function switchTab(tab) {
+        function switchTab(tab, event) {
+            event.preventDefault();
             const tabs = document.querySelectorAll('.tab-content');
             tabs.forEach(t => t.style.display = 'none');
             
@@ -855,125 +739,209 @@
             }
         }
 
-        // Translate URL
         async function translateUrl() {
             const url = document.getElementById('urlInput').value;
             if (!url) {
-                alert('Пожалуйста, введите URL');
+                alert('Введите URL');
                 return;
             }
 
             showLoading();
-            try {
-                const response = await fetch('/api/translate-url', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url })
-                });
 
+            try {
+                const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
                 const data = await response.json();
-                if (data.success) {
-                    displayTranslatedContent(data.content, data.originalTitle);
-                    speak(data.originalTitle);
+                
+                if (data.status && data.status.http_code === 200) {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(data.contents, 'text/html');
+                    
+                    let title = doc.querySelector('h1')?.textContent || 
+                               doc.querySelector('title')?.textContent || 
+                               'Статья';
+                    
+                    let content = '';
+                    const paragraphs = doc.querySelectorAll('p');
+                    paragraphs.forEach(p => {
+                        if (p.textContent.length > 20) {
+                            content += '<p>' + p.textContent + '</p>';
+                        }
+                    });
+
+                    if (!content) {
+                        content = '<p>Содержимое не загружено</p>';
+                    }
+
+                    const translatedTitle = await simpleTranslate(title);
+                    const translatedContent = await simpleTranslate(content);
+
+                    displayContent(translatedTitle, translatedContent);
+                    speak(translatedTitle);
                 } else {
-                    showError(data.error);
+                    showError('Не удалось загрузить сайт');
                 }
             } catch (error) {
-                showError('Ошибка при переводе: ' + error.message);
+                showError('Ошибка: ' + error.message);
             }
         }
 
-        // Translate Text
         async function translateText() {
             const text = document.getElementById('textInput').value;
             if (!text) {
-                alert('Пожалуйста, введите текст');
+                alert('Введите текст');
                 return;
             }
 
             try {
-                const response = await fetch('/api/translate-text', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text })
-                });
-
-                const data = await response.json();
-                if (data.success) {
-                    const resultArea = document.getElementById('translatedTextArea');
-                    resultArea.innerHTML = `<h3 style="color: var(--primary-orange); margin-bottom: 15px;">Перевод:</h3><p>${data.translatedText}</p>`;
-                    resultArea.style.display = 'block';
-                    speak(data.translatedText);
-                } else {
-                    alert(data.error);
-                }
+                const translated = await simpleTranslate(text);
+                const resultArea = document.getElementById('translatedTextArea');
+                resultArea.innerHTML = `<h3 style="color: var(--primary-orange); margin-bottom: 15px;">Перевод:</h3><p>${translated}</p>`;
+                resultArea.style.display = 'block';
+                speak(translated);
             } catch (error) {
                 alert('Ошибка: ' + error.message);
             }
         }
 
-        // Translate Word
-        async function translateWord(word, direction) {
+        const dictionary = {
+            'hello': 'привет',
+            'world': 'мир',
+            'code': 'код',
+            'programming': 'программирование',
+            'function': 'функция',
+            'variable': 'переменная',
+            'database': 'база данных',
+            'server': 'сервер',
+            'client': 'клиент',
+            'network': 'сеть',
+            'internet': 'интернет',
+            'website': 'веб-сайт',
+            'application': 'приложение',
+            'developer': 'разработчик',
+            'technology': 'технология',
+            'computer': 'компьютер',
+            'software': 'программное обеспечение',
+            'hardware': 'оборудование',
+            'data': 'данные',
+            'algorithm': 'алгоритм',
+            'the': 'the',
+            'is': 'это',
+            'are': 'есть',
+            'to': 'к/для',
+            'of': 'из',
+            'and': 'и',
+            'or': 'или',
+            'but': 'но',
+            'in': 'в',
+            'on': 'на',
+            'at': 'в',
+            'for': 'для',
+            'with': 'с',
+            'from': 'из',
+            'by': 'по',
+            'this': 'это',
+            'that': 'то',
+            'which': 'который',
+            'who': 'кто',
+            'what': 'что',
+            'when': 'когда',
+            'where': 'где',
+            'why': 'почему',
+            'how': 'как',
+            'game': 'игра',
+            'play': 'играть',
+            'player': 'игрок',
+            'movie': 'фильм',
+            'film': 'фильм',
+            'cinema': 'кинотеатр',
+            'actor': 'актер',
+            'history': 'история',
+            'historical': 'исторический',
+            'ancient': 'древний',
+            'modern': 'современный',
+            'new': 'новый',
+            'old': 'старый',
+            'good': 'хороший',
+            'bad': 'плохой',
+            'big': 'большой',
+            'small': 'маленький',
+            'fast': 'быстрый',
+            'slow': 'медленный',
+            'hot': 'горячий',
+            'cold': 'холодный',
+            'high': 'высокий',
+            'low': 'низкий',
+            'right': 'право/правый',
+            'left': 'левый',
+            'day': 'день',
+            'night': 'ночь',
+            'year': 'год',
+            'month': 'месяц',
+            'week': 'неделя',
+            'hour': 'час',
+            'minute': 'минута',
+            'second': 'секунда'
+        };
+
+        function translateWord(word, direction) {
             if (!word.trim()) return;
 
-            try {
-                const response = await fetch('/api/translate-word', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ word, direction })
-                });
+            const lowerWord = word.toLowerCase().trim();
+            const resultId = direction === 'en-ru' ? 'wordResult' : 'wordResultRu';
+            const resultElement = document.getElementById(resultId);
 
-                const data = await response.json();
-                const resultId = direction === 'en-ru' ? 'wordResult' : 'wordResultRu';
-                const resultElement = document.getElementById(resultId);
-
-                if (data.success) {
-                    resultElement.innerHTML = `<strong>${data.translation}</strong>`;
+            if (direction === 'en-ru') {
+                const translation = dictionary[lowerWord];
+                if (translation) {
+                    resultElement.innerHTML = `<strong>${translation}</strong>`;
                     resultElement.style.display = 'block';
                 } else {
-                    resultElement.innerHTML = `Не найдено`;
+                    resultElement.innerHTML = `Слово не найдено`;
                     resultElement.style.display = 'block';
                 }
-            } catch (error) {
-                console.error('Error:', error);
+            } else if (direction === 'ru-en') {
+                for (const [eng, rus] of Object.entries(dictionary)) {
+                    if (rus === lowerWord) {
+                        resultElement.innerHTML = `<strong>${eng}</strong>`;
+                        resultElement.style.display = 'block';
+                        return;
+                    }
+                }
+                resultElement.innerHTML = `Слово не найдено`;
+                resultElement.style.display = 'block';
             }
         }
 
-        // Load Category
         function loadCategory(category) {
             const articlesList = document.getElementById('articlesList');
             const categoryArticles = articles[category] || [];
 
-            articlesList.innerHTML = categoryArticles.map((article, idx) => `
-                <div class="article-item" onclick="loadArticle('${article.url}', '${article.title}')">
+            articlesList.innerHTML = categoryArticles.map(article => `
+                <div class="article-item" onclick="loadArticle('${article.url}', '${article.title.replace(/'/g, "\\'")}')">
                     <h4>${article.title}</h4>
                     <p>${category}</p>
                 </div>
             `).join('');
-
-            createParticleEffect();
         }
 
-        // Load Article
         function loadArticle(url, title) {
             document.getElementById('urlInput').value = url;
             translateUrl();
         }
 
-        // Display Translated Content
-        function displayTranslatedContent(content, title) {
+        function displayContent(title, content) {
             const contentArea = document.getElementById('contentArea');
             contentArea.innerHTML = `
                 <div class="audio-player">
-                    <button onclick="speak('${title}')"><i class="fas fa-volume-up"></i> Озвучить</button>
-                    <span style="flex: 1;">Заголовок: ${title}</span>
+                    <button onclick="speak('${title.replace(/'/g, "\\'")}')" style="cursor: pointer;">
+                        <i class="fas fa-volume-up"></i> Озвучить
+                    </button>
+                    <span style="flex: 1; font-size: 14px;"><strong>${title}</strong></span>
                 </div>
                 <div class="translated-content">${content}</div>
             `;
-            createParticleEffect();
         }
 
-        // Show Loading
         function showLoading() {
             document.getElementById('contentArea').innerHTML = `
                 <div class="loading">
@@ -983,17 +951,15 @@
             `;
         }
 
-        // Show Error
         function showError(error) {
             document.getElementById('contentArea').innerHTML = `
-                <div style="padding: 30px; text-align: center; color: red;">
+                <div style="padding: 30px; text-align: center; color: #ff6b35;">
                     <i class="fas fa-exclamation-circle" style="font-size: 40px;"></i>
-                    <h3>${error}</h3>
+                    <h3 style="margin-top: 15px;">${error}</h3>
                 </div>
             `;
         }
 
-        // Text to Speech
         function speak(text) {
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = 'ru-RU';
@@ -1002,46 +968,41 @@
             window.speechSynthesis.speak(utterance);
         }
 
-        // Weather
         async function updateWeather() {
             try {
-                const response = await fetch('/api/weather');
+                const response = await fetch('https://wttr.in/?format=j1');
                 const data = await response.json();
+                const current = data.current_condition[0];
+                const location = data.nearest_area[0];
 
-                if (data.success) {
-                    const weatherInfo = document.getElementById('weatherInfo');
-                    weatherInfo.innerHTML = `
-                        <div class="temp-display">${Math.round(data.temp)}°C</div>
-                        <p><strong>Состояние:</strong> ${data.description}</p>
-                        <p><strong>Влажность:</strong> ${data.humidity}%</p>
-                        <p><strong>Скорость ветра:</strong> ${data.wind} м/с</p>
-                    `;
-                }
+                const weatherInfo = document.getElementById('weatherInfo');
+                weatherInfo.innerHTML = `
+                    <div class="temp-display">${current.temp_C}°C</div>
+                    <p><strong>Состояние:</strong> ${current.lang_ru[0].value}</p>
+                    <p><strong>Влажность:</strong> ${current.humidity}%</p>
+                    <p><strong>Ветер:</strong> ${current.windspeed_kmph} км/ч</p>
+                    <p><strong>Город:</strong> ${location.areaName[0].value}</p>
+                `;
             } catch (error) {
-                console.error('Weather error:', error);
+                const weatherInfo = document.getElementById('weatherInfo');
+                weatherInfo.innerHTML = `<p>Ошибка загрузки погоды</p>`;
             }
         }
 
-        // Change Fun Fact
         function changeFunFact() {
             const fact = funFacts[Math.floor(Math.random() * funFacts.length)];
             document.getElementById('funFactText').textContent = fact;
         }
 
-        // Particle Effect
-        function createParticleEffect() {
-            const colors = ['🎉', '✨', '🚀', '💡', '🌟'];
-            for (let i = 0; i < 5; i++) {
-                const particle = document.createElement('div');
-                particle.className = 'particle';
-                particle.textContent = colors[Math.floor(Math.random() * colors.length)];
-                particle.style.left = Math.random() * window.innerWidth + 'px';
-                particle.style.top = window.innerHeight + 'px';
-                particle.style.animation = 'particleFloat 2s ease-out forwards';
-                document.body.appendChild(particle);
-
-                setTimeout(() => particle.remove(), 2000);
+        async function simpleTranslate(text) {
+            let result = text;
+            
+            for (const [eng, rus] of Object.entries(dictionary)) {
+                const regex = new RegExp(`\\b${eng}\\b`, 'gi');
+                result = result.replace(regex, rus);
             }
+
+            return result;
         }
     </script>
 </body>
