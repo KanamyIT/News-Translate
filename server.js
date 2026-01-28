@@ -6,8 +6,8 @@ const path = require('path');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-const HOST = process.env.HOST || '0.0.0.0'; // ✅ ВАЖНО: 0.0.0.0 для Render!
+const PORT = Number(process.env.PORT) || 3000;
+const HOST = process.env.HOST || '0.0.0.0'; // Render: обязательно 0.0.0.0
 
 // ==================== MIDDLEWARE ====================
 app.use(cors({ origin: '*' }));
@@ -15,10 +15,60 @@ app.use(express.json({ limit: '8mb' }));
 app.use(express.urlencoded({ extended: true, limit: '8mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ==================== SMALL UTILS ====================
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 // ==================== TRANSLATION SYSTEM ====================
 
-// Кэш переводов
+// Кэш переводов (простая защита от разрастания)
 const trCache = new Map();
+const TR_CACHE_MAX = 2500;
+function cacheSet(key, val) {
+  trCache.set(key, val);
+  if (trCache.size > TR_CACHE_MAX) {
+    const firstKey = trCache.keys().next().value;
+    trCache.delete(firstKey);
+  }
+}
+
+// Лимитер запросов к MyMemory (чтобы не ловить rate limit)
+const TR_CONCURRENCY = 2;
+const TR_MIN_INTERVAL_MS = 140;
+
+let trActive = 0;
+let trLastStart = 0;
+const trQueue = [];
+
+function pumpTranslateQueue() {
+  if (trActive >= TR_CONCURRENCY) return;
+  const item = trQueue.shift();
+  if (!item) return;
+
+  trActive++;
+  (async () => {
+    try {
+      const now = Date.now();
+      const wait = Math.max(0, trLastStart + TR_MIN_INTERVAL_MS - now);
+      if (wait) await sleep(wait);
+      trLastStart = Date.now();
+
+      const result = await item.task();
+      item.resolve(result);
+    } catch (e) {
+      item.reject(e);
+    } finally {
+      trActive--;
+      pumpTranslateQueue();
+    }
+  })();
+}
+
+function limitTranslate(task) {
+  return new Promise((resolve, reject) => {
+    trQueue.push({ task, resolve, reject });
+    pumpTranslateQueue();
+  });
+}
 
 // Перевод через MyMemory API
 async function myMemoryTranslate(text, from = 'en', to = 'ru') {
@@ -28,16 +78,29 @@ async function myMemoryTranslate(text, from = 'en', to = 'ru') {
   const key = `${from}|${to}|${clean}`;
   if (trCache.has(key)) return trCache.get(key);
 
-  try {
-    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(clean)}&langpair=${from}|${to}`;
-    const { data } = await axios.get(url, { timeout: 20000 });
-    const translated = data?.responseData?.translatedText || clean;
-    trCache.set(key, translated);
-    return translated;
-  } catch (err) {
-    console.error('Translation error:', err.message);
-    return clean;
-  }
+  return limitTranslate(async () => {
+    try {
+      const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(clean)}&langpair=${from}|${to}`;
+      const { data } = await axios.get(url, {
+        timeout: 25000,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36'
+        }
+      });
+
+      const status = Number(data?.responseStatus);
+      if (status && status !== 200) {
+        // 403 часто означает лимит/блок — возвращаем оригинал
+        return clean;
+      }
+
+      const translated = data?.responseData?.translatedText || clean;
+      cacheSet(key, translated);
+      return translated;
+    } catch (err) {
+      return clean;
+    }
+  });
 }
 
 // Разделение текста на части для перевода
@@ -81,7 +144,7 @@ function looksEnglish(s) {
   return /[A-Za-z]/.test(t);
 }
 
-// Защита кодовых токенов
+// Защита кодовых токенов (чтобы не переводить имена функций/методов)
 const CODE_WORDS = [
   'print', 'printf', 'echo', 'console', 'console.log', 'document', 'window',
   'getElementById', 'querySelector', 'function', 'return', 'let', 'const',
@@ -124,7 +187,7 @@ function restoreCodeTokens(text, replacements) {
   return out;
 }
 
-// Основная функция перевода
+// Основная функция перевода (EN -> RU если надо)
 async function toRuIfNeeded(text) {
   const t = String(text || '').trim();
   if (!t) return t;
@@ -196,12 +259,17 @@ function pickMainScope($, url) {
     const w = $('#mw-content-text').first();
     if (w.length) return w;
   }
+
   if (host.includes('w3schools.com')) {
+    // у W3Schools часто основной контент в #main
+    const main = $('#main').first();
+    if (main.length) return main;
+
     const w3 = $('.w3-main').first();
     if (w3.length) return w3;
   }
 
-  for (const sel of ['article', 'main', '#content', '.content', 'body']) {
+  for (const sel of ['article', 'main', '#content', '#main', '.content', 'body']) {
     const el = $(sel).first();
     if (el.length) return el;
   }
@@ -231,6 +299,7 @@ async function translateTextNodesCheerio($, $root, baseUrl) {
     $img.attr('style', (String($img.attr('style') || '') + ';max-width:100%;height:auto;border-radius:12px;').trim());
   });
 
+  // 1) Собираем уникальные текстовые сегменты
   const nodes = $root.find('*').addBack().contents();
   const uniq = new Set();
 
@@ -244,26 +313,30 @@ async function translateTextNodesCheerio($, $root, baseUrl) {
 
     const t = raw.replace(/\s+/g, ' ').trim();
     if (!t) return;
-    if (/[{}()\[\];<>]|=>|::|->|==|!=|===/.test(t)) return;
+
+    // Отсекаем "похожее на код"
+    if (/[{};<>]|=>|::|->|===|!==/.test(t)) return;
+
+    // Слишком короткие куски (типа "Next", "Home") часто мусорят
+    if (t.length < 3) return;
 
     uniq.add(t);
   });
 
-  const list = Array.from(uniq).slice(0, 5000);
+  // Жёсткий лимит, чтобы не убить переводчик
+  const list = Array.from(uniq).slice(0, 700);
   const map = new Map();
-  const CONCURRENCY = 6;
 
-  for (let i = 0; i < list.length; i += CONCURRENCY) {
-    const batch = list.slice(i, i + CONCURRENCY);
-    const results = await Promise.all(
-      batch.map(async (t) => {
-        if (hasCyrillic(t)) return [t, t];
-        return [t, await toRuIfNeeded(t)];
-      })
-    );
-    results.forEach(([k, v]) => map.set(k, v));
+  // 2) Переводим сегменты (с лимитером внутри myMemoryTranslate)
+  for (const t of list) {
+    if (hasCyrillic(t)) {
+      map.set(t, t);
+      continue;
+    }
+    map.set(t, await toRuIfNeeded(t));
   }
 
+  // 3) Подставляем переводы обратно
   nodes.each((_, node) => {
     if (node.type !== 'text') return;
     const parentTag = node.parent && node.parent.name ? String(node.parent.name).toLowerCase() : '';
@@ -297,15 +370,21 @@ app.post('/api/translate-url', async (req, res) => {
     if (!url) return res.status(400).json({ success: false, error: 'URL не предоставлен' });
 
     const response = await axios.get(url, {
-      timeout: 30000,
+      timeout: 35000,
+      maxContentLength: 6 * 1024 * 1024,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Render; Node.js)',
-        'Accept-Language': 'ru,en;q=0.8'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'ru-RU,ru;q=0.9,en;q=0.8',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1'
       }
     });
 
     const $ = cheerio.load(response.data);
-    const rawTitle = $('meta[property="og:title"]').attr('content') ||
+
+    const rawTitle =
+      $('meta[property="og:title"]').attr('content') ||
       $('h1').first().text().trim() ||
       $('title').text().trim() ||
       'Статья';
@@ -313,11 +392,17 @@ app.post('/api/translate-url', async (req, res) => {
     const $scope = pickMainScope($, url);
     cleanupScope($scope);
 
-    const $out = $('');
-    const selector = 'h1,h2,h3,h4,h5,h6,p,ul,ol,li,pre,blockquote,figure,img,figcaption,' +
+    // ✅ КРИТИЧНОЕ ИСПРАВЛЕНИЕ:
+    // Было: const $out = $('');  -> это пустой selection, append туда ничего не добавляет.
+    // Должно быть: реальный контейнер-элемент.
+    const $out = $('<div id="extracted"></div>');
+
+    const selector =
+      'h1,h2,h3,h4,h5,h6,p,ul,ol,li,pre,blockquote,figure,img,figcaption,' +
       'div.w3-panel,div.w3-note,div.w3-example,div.w3-info,div.w3-warning';
 
     const els = $scope.find(selector).toArray();
+
     let added = 0;
     let charBudget = 0;
     const MAX_ELEMS = 520;
@@ -345,6 +430,15 @@ app.post('/api/translate-url', async (req, res) => {
     $out.find('script,style,noscript,iframe').remove();
     removeOnAttributes($out);
 
+    const htmlBefore = $out.html() || '';
+    if (!htmlBefore || htmlBefore.trim().length < 120) {
+      return res.status(500).json({
+        success: false,
+        error: 'Не удалось извлечь контент (страница пустая/защищена/селекторы не совпали).',
+        debug: { extractedChars: htmlBefore.length, url }
+      });
+    }
+
     await translateTextNodesCheerio($, $out, url);
 
     res.json({
@@ -364,10 +458,9 @@ app.post('/api/translate-text', async (req, res) => {
     const { text, from = 'en', to = 'ru' } = req.body || {};
     if (!text) return res.status(400).json({ success: false, error: 'Текст не предоставлен' });
 
-    res.json({
-      success: true,
-      translated: await translateLong(text, from, to)
-    });
+    const translated = await translateLong(text, from, to);
+
+    res.json({ success: true, translated });
   } catch (e) {
     res.status(500).json({ success: false, error: `Ошибка перевода: ${e.message || 'unknown'}` });
   }
@@ -409,54 +502,41 @@ app.get('/api/weather', async (req, res) => {
   }
 });
 
-// Articles endpoint
+// Articles endpoint (готовые RU заголовки — чтобы не зависеть от MyMemory)
 const ARTICLES = {
   programming: [
-    { title: 'JavaScript Tutorial (W3Schools)', url: 'https://www.w3schools.com/js/' },
-    { title: 'Python Tutorial (W3Schools)', url: 'https://www.w3schools.com/python/' },
-    { title: 'HTML Tutorial (W3Schools)', url: 'https://www.w3schools.com/html/' },
-    { title: 'CSS Tutorial (W3Schools)', url: 'https://www.w3schools.com/css/' },
-    { title: 'React Docs', url: 'https://react.dev/' },
-    { title: 'Node.js Docs', url: 'https://nodejs.org/en/docs/' }
+    { title: 'JavaScript Tutorial', url: 'https://www.w3schools.com/js/', titleRu: 'Учебник JavaScript' },
+    { title: 'Python Tutorial', url: 'https://www.w3schools.com/python/', titleRu: 'Учебник Python' },
+    { title: 'HTML Tutorial', url: 'https://www.w3schools.com/html/', titleRu: 'Учебник HTML' },
+    { title: 'CSS Tutorial', url: 'https://www.w3schools.com/css/', titleRu: 'Учебник CSS' },
+    { title: 'React Docs', url: 'https://react.dev/', titleRu: 'Документация React' },
+    { title: 'Node.js Docs', url: 'https://nodejs.org/en/docs/', titleRu: 'Документация Node.js' }
   ],
   history: [
-    { title: 'Ancient Rome', url: 'https://en.wikipedia.org/wiki/Ancient_Rome' },
-    { title: 'Middle Ages', url: 'https://en.wikipedia.org/wiki/Middle_Ages' },
-    { title: 'Renaissance', url: 'https://en.wikipedia.org/wiki/Renaissance' },
-    { title: 'French Revolution', url: 'https://en.wikipedia.org/wiki/French_Revolution' },
-    { title: 'World War I', url: 'https://en.wikipedia.org/wiki/World_War_I' },
-    { title: 'World War II', url: 'https://en.wikipedia.org/wiki/World_War_II' }
+    { title: 'Ancient Rome', url: 'https://en.wikipedia.org/wiki/Ancient_Rome', titleRu: 'Древний Рим' },
+    { title: 'Middle Ages', url: 'https://en.wikipedia.org/wiki/Middle_Ages', titleRu: 'Средние века' },
+    { title: 'Renaissance', url: 'https://en.wikipedia.org/wiki/Renaissance', titleRu: 'Ренессанс' },
+    { title: 'French Revolution', url: 'https://en.wikipedia.org/wiki/French_Revolution', titleRu: 'Французская революция' },
+    { title: 'World War I', url: 'https://en.wikipedia.org/wiki/World_War_I', titleRu: 'Первая мировая война' },
+    { title: 'World War II', url: 'https://en.wikipedia.org/wiki/World_War_II', titleRu: 'Вторая мировая война' }
   ],
   games: [
-    { title: 'Video game', url: 'https://en.wikipedia.org/wiki/Video_game' },
-    { title: 'Game design', url: 'https://en.wikipedia.org/wiki/Game_design' },
-    { title: 'Game Programming Patterns', url: 'https://gameprogrammingpatterns.com/' }
+    { title: 'Video game', url: 'https://en.wikipedia.org/wiki/Video_game', titleRu: 'Видеоигра' },
+    { title: 'Game design', url: 'https://en.wikipedia.org/wiki/Game_design', titleRu: 'Дизайн игры' },
+    { title: 'Game Programming Patterns', url: 'https://gameprogrammingpatterns.com/', titleRu: 'Паттерны программирования игр' }
   ],
   cinema: [
-    { title: 'History of film', url: 'https://en.wikipedia.org/wiki/History_of_film' },
-    { title: 'Cinematography', url: 'https://en.wikipedia.org/wiki/Cinematography' },
-    { title: 'Film directing', url: 'https://en.wikipedia.org/wiki/Film_directing' }
+    { title: 'History of film', url: 'https://en.wikipedia.org/wiki/History_of_film', titleRu: 'История кинематографа' },
+    { title: 'Cinematography', url: 'https://en.wikipedia.org/wiki/Cinematography', titleRu: 'Кинематография' },
+    { title: 'Film directing', url: 'https://en.wikipedia.org/wiki/Film_directing', titleRu: 'Режиссура фильма' }
   ]
 };
-
-const articleTitleCache = new Map();
 
 app.get('/api/articles/:category', async (req, res) => {
   try {
     const { category } = req.params;
     const list = ARTICLES[category] || [];
-
-    const out = await Promise.all(
-      list.map(async (a) => {
-        if (articleTitleCache.has(a.title)) {
-          return { ...a, title: articleTitleCache.get(a.title) };
-        }
-        const tr = await toRuIfNeeded(a.title);
-        articleTitleCache.set(a.title, tr);
-        return { ...a, title: tr };
-      })
-    );
-
+    const out = list.map((a) => ({ ...a, title: a.titleRu || a.title }));
     res.json({ success: true, articles: out });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message || 'articles error' });
@@ -473,7 +553,7 @@ app.get('/translate', (req, res) => res.sendFile(path.join(__dirname, 'public', 
 // 404
 app.use((req, res) => res.status(404).json({ success: false, error: 'Endpoint не найден' }));
 
-// Start server - ✅ ИСПРАВЛЕНО: Слушаем на 0.0.0.0 вместо localhost
+// Start server
 app.listen(PORT, HOST, () => {
   console.log(`✅ Сервер запущен на http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
   console.log(`📡 API доступен на http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}/api`);
