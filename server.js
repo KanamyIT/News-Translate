@@ -29,12 +29,15 @@ const TO = 'ru';
 
 // ====== HARD limits to avoid 502 ======
 const TRANSLATE_BUDGET_MS = Number(process.env.TRANSLATE_BUDGET_MS) || 12000; // 12s
-const FETCH_TIMEOUT_MS = Number(process.env.FETCH_TIMEOUT_MS) || 20000;       // 20s
+const FETCH_TIMEOUT_MS = Number(process.env.FETCH_TIMEOUT_MS) || 20000; // 20s
 
 // ====== cache ======
 const trCache = new Map();
 const TR_CACHE_MAX = 5000;
-function cacheGet(k) { return trCache.get(k); }
+
+function cacheGet(k) {
+  return trCache.get(k);
+}
 function cacheSet(k, v) {
   trCache.set(k, v);
   if (trCache.size > TR_CACHE_MAX) trCache.delete(trCache.keys().next().value);
@@ -43,6 +46,7 @@ function cacheSet(k, v) {
 // ====== limiter ======
 const TR_CONCURRENCY = 2;
 const TR_MIN_INTERVAL_MS = 120;
+
 let trActive = 0;
 let trLastStart = 0;
 const trQueue = [];
@@ -51,8 +55,8 @@ function pumpTranslateQueue() {
   if (trActive >= TR_CONCURRENCY) return;
   const item = trQueue.shift();
   if (!item) return;
-
   trActive++;
+
   (async () => {
     try {
       const now = Date.now();
@@ -78,14 +82,21 @@ function limitTranslate(task) {
 }
 
 // ====== heuristics ======
-function hasCyrillic(s) { return /[А-Яа-яЁё]/.test(String(s || '')); }
+function hasCyrillic(s) {
+  return /[А-Яа-яЁё]/.test(String(s || ''));
+}
+
 function looksEnglish(s) {
   const t = String(s || '').trim();
   if (!t) return false;
   if (hasCyrillic(t)) return false;
   return /[A-Za-z]/.test(t);
 }
-function normalizeText(t) { return String(t || '').replace(/\s+/g, ' ').trim(); }
+
+function normalizeText(t) {
+  return String(t || '').replace(/\s+/g, ' ').trim();
+}
+
 function looksCodey(t) {
   const s = String(t || '');
   if (/[{};<>]|=>|::|->|===|!==/.test(s)) return true;
@@ -109,6 +120,7 @@ function protectCodeTokens(text) {
 
   for (const m of src.matchAll(/\b[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*\b/g)) add(m[0]);
   for (const m of src.matchAll(/\b([A-Za-z_][A-Za-z0-9_]*)\s*\(/g)) add(m[1]);
+
   for (const w of CODE_WORDS) {
     const re = new RegExp(`\\b${String(w).replace('.', '\\.')}\\b`, 'g');
     if (re.test(src)) add(w);
@@ -129,6 +141,7 @@ function protectCodeTokens(text) {
 
   return { protectedText: out, replacements };
 }
+
 function restoreCodeTokens(text, replacements) {
   let out = String(text || '');
   for (const [ph, token] of replacements) out = out.replaceAll(ph, token);
@@ -139,14 +152,17 @@ function restoreCodeTokens(text, replacements) {
 async function translateWithRetry(fn, label) {
   const tries = 3;
   let last = null;
+
   for (let i = 0; i < tries; i++) {
-    try { return await fn(); }
-    catch (e) {
+    try {
+      return await fn();
+    } catch (e) {
       last = e;
       const base = [300, 800, 1500][i] || 1500;
       await sleep(base + rand(0, 250));
     }
   }
+
   throw new Error(`${label} failed: ${last?.message || 'unknown'}`);
 }
 
@@ -155,7 +171,11 @@ async function myMemoryTranslateRaw(text) {
   if (!clean) return clean;
 
   const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(clean)}&langpair=${FROM}|${TO}`;
-  const { data } = await axios.get(url, { timeout: 12000, headers: { 'User-Agent': 'Mozilla/5.0' } });
+  const { data } = await axios.get(url, {
+    timeout: 12000,
+    headers: { 'User-Agent': 'Mozilla/5.0' }
+  });
+
   const status = Number(data?.responseStatus);
   const translated = String(data?.responseData?.translatedText || '').trim();
   if ((status && status !== 200) || !translated) throw new Error(`MyMemory status=${status || 'unknown'}`);
@@ -222,7 +242,6 @@ function splitByBudget(items, maxChars = 1600) {
     cur.push(s);
     len += add;
   }
-
   if (cur.length) batches.push(cur);
   return batches;
 }
@@ -239,8 +258,8 @@ async function translateBatch(lines) {
 
   const joined = protectedLines.join(SEP);
   const translatedJoined = await translateShort(joined);
-
   const parts = translatedJoined.split(SEP_RE);
+
   if (parts.length !== lines.length) {
     const out = [];
     for (let i = 0; i < lines.length; i++) out.push(await translateShort(protectedLines[i]));
@@ -282,17 +301,22 @@ function removeOnAttributes($root) {
 }
 
 function pickMainScope($, url) {
-  const host = (() => { try { return new URL(url).hostname; } catch { return ''; } })();
+  const host = (() => {
+    try { return new URL(url).hostname; } catch { return ''; }
+  })();
+
   if (host.includes('wikipedia.org')) {
     const w = $('#mw-content-text').first();
     if (w.length) return w;
   }
+
   if (host.includes('w3schools.com')) {
     const main = $('#main').first();
     if (main.length) return main;
     const w3 = $('.w3-main').first();
     if (w3.length) return w3;
   }
+
   for (const sel of ['article', 'main', '#content', '#main', '.content', 'body']) {
     const el = $(sel).first();
     if (el.length) return el;
@@ -317,8 +341,10 @@ async function translateTextNodesCheerio($, $root, baseUrl, deadlineTs) {
     const $img = $(el);
     const srcRaw = $img.attr('src') || $img.attr('data-src') || $img.attr('data-original');
     const abs = absolutizeUrl(srcRaw, baseUrl);
+
     if (abs && /^https?:\/\//i.test(abs)) $img.attr('src', `/api/image?url=${encodeURIComponent(abs)}`);
     else $img.attr('src', abs || '');
+
     $img.attr('loading', 'lazy');
     $img.attr('style', (String($img.attr('style') || '') + ';max-width:100%;height:auto;border-radius:12px;').trim());
   });
@@ -328,6 +354,7 @@ async function translateTextNodesCheerio($, $root, baseUrl, deadlineTs) {
 
   nodes.each((_, node) => {
     if (node.type !== 'text') return;
+
     const parentTag = node.parent?.name ? String(node.parent.name).toLowerCase() : '';
     if (SKIP.has(parentTag)) return;
 
@@ -335,22 +362,30 @@ async function translateTextNodesCheerio($, $root, baseUrl, deadlineTs) {
     if (!raw || !raw.trim()) return;
 
     const t = normalizeText(raw);
-    if (t.length < 20) return;
+
+    // ✅ FIX: не отсекаем короткие строки (иначе UI остаётся "оригиналом")
+    if (t.length < 2) return;
+
     if (!looksEnglish(t)) return;
     if (looksCodey(t)) return;
 
     if (!uniq.has(t)) uniq.set(t, t);
   });
 
-  const list = Array.from(uniq.keys()).slice(0, 160);
-  const batches = splitByBudget(list, 1600);
+  // ✅ FIX: больше сегментов на страницу
+  const list = Array.from(uniq.keys()).slice(0, 700);
 
+  const batches = splitByBudget(list, 1600);
   const map = new Map();
   let translatedSegments = 0;
   let stoppedByBudget = false;
 
   for (const batch of batches) {
-    if (Date.now() > deadlineTs) { stoppedByBudget = true; break; }
+    if (Date.now() > deadlineTs) {
+      stoppedByBudget = true;
+      break;
+    }
+
     const trs = await translateBatch(batch);
     for (let i = 0; i < batch.length; i++) {
       const src = batch[i];
@@ -362,6 +397,7 @@ async function translateTextNodesCheerio($, $root, baseUrl, deadlineTs) {
 
   nodes.each((_, node) => {
     if (node.type !== 'text') return;
+
     const parentTag = node.parent?.name ? String(node.parent.name).toLowerCase() : '';
     if (SKIP.has(parentTag)) return;
 
@@ -380,7 +416,6 @@ async function translateTextNodesCheerio($, $root, baseUrl, deadlineTs) {
 }
 
 // ===================== routes =====================
-
 app.get('/api/image', async (req, res) => {
   try {
     const url = String(req.query.url || '').trim();
@@ -404,6 +439,7 @@ app.get('/api/image', async (req, res) => {
 
 app.post('/api/translate-url', async (req, res) => {
   const t0 = Date.now();
+
   try {
     const { url } = req.body || {};
     if (!url) return res.status(400).json({ success: false, error: 'URL не предоставлен' });
@@ -433,7 +469,6 @@ app.post('/api/translate-url', async (req, res) => {
     cleanupScope($scope);
 
     const $out = $('<div id="extracted"></div>');
-
     const selector =
       'h1,h2,h3,h4,h5,h6,p,ul,ol,li,pre,code,blockquote,figure,img,figcaption,' +
       'div.w3-panel,div.w3-note,div.w3-example,div.w3-info,div.w3-warning';
@@ -443,9 +478,11 @@ app.post('/api/translate-url', async (req, res) => {
     let added = 0;
     let charBudget = 0;
 
-    const host = (() => { try { return new URL(url).hostname; } catch { return ''; } })();
-    const isWiki = host.includes('wikipedia.org');
+    const host = (() => {
+      try { return new URL(url).hostname; } catch { return ''; }
+    })();
 
+    const isWiki = host.includes('wikipedia.org');
     const MAX_ELEMS = isWiki ? 360 : 460;
     const MAX_CHARS = isWiki ? 60000 : 95000;
 
@@ -454,6 +491,7 @@ app.post('/api/translate-url', async (req, res) => {
 
       const $el = $(el);
       const tag = (el.name || '').toLowerCase();
+
       if ($el.parents('nav,header,footer,aside').length) continue;
 
       if (tag === 'div') {
@@ -497,13 +535,7 @@ app.post('/api/translate-url', async (req, res) => {
       title: titleRu,
       contentHtml: $out.html() || '',
       sourceUrl: url,
-      debug: {
-        fetchMs,
-        extractMs,
-        translateMs,
-        totalMs: Date.now() - t0,
-        ...segInfo
-      }
+      debug: { fetchMs, extractMs, translateMs, totalMs: Date.now() - t0, ...segInfo }
     });
   } catch (e) {
     res.status(500).json({ success: false, error: e?.message || 'unknown' });
@@ -511,7 +543,6 @@ app.post('/api/translate-url', async (req, res) => {
 });
 
 /* ===================== ДОБАВЛЕНО: ARTICLES + WEATHER ===================== */
-
 const ARTICLES = {
   programming: [
     { title: 'JavaScript Tutorial', url: 'https://www.w3schools.com/js/', titleRu: 'Учебник JavaScript' },
@@ -557,8 +588,8 @@ app.get('/api/weather', async (req, res) => {
 
     const current = data?.current_condition?.[0];
     const area = data?.nearest_area?.[0];
-    const desc = current?.lang_ru?.[0]?.value || current?.weatherDesc?.[0]?.value || '—';
 
+    const desc = current?.lang_ru?.[0]?.value || current?.weatherDesc?.[0]?.value || '—';
     const forecast = (data?.weather || []).slice(0, 3).map((d) => {
       const mid = (d.hourly || []).find(h => String(h.time) === '1200') || (d.hourly || [])[0] || null;
       const raw = mid?.lang_ru?.[0]?.value || mid?.weatherDesc?.[0]?.value || '—';
@@ -575,7 +606,6 @@ app.get('/api/weather', async (req, res) => {
     res.json({ success: false, error: e?.message || 'weather error' });
   }
 });
-
 /* ===================== /ДОБАВЛЕНО ===================== */
 
 app.get('/api/health', (req, res) => res.json({ success: true }));
