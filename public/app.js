@@ -1,10 +1,10 @@
 (() => {
   const byId = (id) => {
-  if (!id || typeof id !== 'string') return null;
-  const k = id.trim();
-  if (!k) return null;
-  return document.getElementById(k);
-};
+    if (!id || typeof id !== 'string') return null;
+    const k = id.trim();
+    if (!k) return null;
+    return document.getElementById(k);
+  };
 
   const qsa = (sel) => Array.from(document.querySelectorAll(sel));
 
@@ -251,6 +251,20 @@
     loadWeather();
     setInterval(loadWeather, 600000);
 
-    loadArticles('programming');
+    // ✅ ДОБАВЛЕНО: автоперевод статьи при переходе из карточек на /translate?url=...
+    const params = new URLSearchParams(window.location.search);
+    const urlFromCard = params.get('url');
+    if (urlFromCard) {
+      const input = byId('urlInput');
+      if (input) input.value = urlFromCard;
+
+      const out = byId('translatedArea') || byId('contentArea');
+      if (out) translateUrlInto(out);
+
+      // Переключаемся на вкладку URL-перевода (если у тебя другой ключ вкладки — скажи)
+      switchTab('url');
+    } else {
+      loadArticles('programming');
+    }
   });
 })();
