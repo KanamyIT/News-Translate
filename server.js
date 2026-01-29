@@ -16,21 +16,26 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 
-// ==================== MIDDLEWARE ====================
 app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '8mb' }));
 app.use(express.urlencoded({ extended: true, limit: '8mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ==================== SMALL UTILS ====================
+// -------------------- utils --------------------
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const rand = (min, max) => Math.floor(min + Math.random() * (max - min + 1));
 
-// ==================== TRANSLATION (EN -> RU) ====================
+// -------------------- EN->RU translation core --------------------
+const FROM = 'en';
+const TO = 'ru';
 
 // Cache
 const trCache = new Map();
-const TR_CACHE_MAX = 3000;
+const TR_CACHE_MAX = 3500;
 
+function cacheGet(key) {
+  return trCache.get(key);
+}
 function cacheSet(key, val) {
   trCache.set(key, val);
   if (trCache.size > TR_CACHE_MAX) {
@@ -39,9 +44,9 @@ function cacheSet(key, val) {
   }
 }
 
-// Rate limiter for MyMemory
+// Queue limiter (protects external APIs)
 const TR_CONCURRENCY = 2;
-const TR_MIN_INTERVAL_MS = 160;
+const TR_MIN_INTERVAL_MS = 170;
 let trActive = 0;
 let trLastStart = 0;
 const trQueue = [];
@@ -77,65 +82,9 @@ function limitTranslate(task) {
   });
 }
 
-async function myMemoryTranslate(text, from = 'en', to = 'ru') {
-  const clean = String(text || '').trim();
-  if (!clean) return clean;
-
-  const key = `${from}|${to}|${clean}`;
-  if (trCache.has(key)) return trCache.get(key);
-
-  return limitTranslate(async () => {
-    try {
-      const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(clean)}&langpair=${from}|${to}`;
-      const { data } = await axios.get(url, {
-        timeout: 25000,
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36'
-        }
-      });
-
-      const status = Number(data?.responseStatus);
-      // если лимит/блок — вернём оригинал
-      if (status && status !== 200) return clean;
-
-      const translated = data?.responseData?.translatedText || clean;
-      cacheSet(key, translated);
-      return translated;
-    } catch {
-      return clean;
-    }
-  });
-}
-
-function splitText(text, maxLen = 480) {
-  const s = String(text || '');
-  if (s.length <= maxLen) return [s];
-
-  const parts = [];
-  let i = 0;
-  while (i < s.length) {
-    let end = Math.min(i + maxLen, s.length);
-    const slice = s.slice(i, end);
-    const lastSpace = slice.lastIndexOf(' ');
-    if (lastSpace > 220) end = i + lastSpace;
-    parts.push(s.slice(i, end));
-    i = end;
-  }
-  return parts;
-}
-
-async function translateLong(text, from = 'en', to = 'ru') {
-  const chunks = splitText(text, 480);
-  let out = '';
-  for (const ch of chunks) out += await myMemoryTranslate(ch, from, to).catch(() => ch);
-  return out;
-}
-
 function hasCyrillic(s) {
   return /[А-Яа-яЁё]/.test(String(s || ''));
 }
-
 function looksEnglish(s) {
   const t = String(s || '').trim();
   if (!t) return false;
@@ -143,7 +92,7 @@ function looksEnglish(s) {
   return /[A-Za-z]/.test(t);
 }
 
-// --- code token protection (важно для документации) ---
+// -------- protect code/docs tokens --------
 const CODE_WORDS = [
   // JS
   'console', 'console.log', 'document', 'window', 'getElementById', 'querySelector',
@@ -153,7 +102,7 @@ const CODE_WORDS = [
   'print', 'printf', 'def', 'None', 'True', 'False', 'list', 'dict', 'tuple', 'set',
   'str', 'int', 'float', 'bool',
   // Common
-  'HTTP', 'URL', 'JSON', 'API', 'Node.js', 'React'
+  'HTTP', 'URL', 'JSON', 'API', 'Node.js', 'React', 'CSS', 'HTML', 'JS'
 ];
 
 function protectCodeTokens(text) {
@@ -163,11 +112,11 @@ function protectCodeTokens(text) {
   const found = [];
   const add = (v) => { if (v && !found.includes(v)) found.push(v); };
 
-  // method.likeThis / object.property
+  // obj.method / foo.bar
   for (const m of src.matchAll(/\b[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*\b/g)) add(m[0]);
-  // functionCall(
+  // callLikeThis(
   for (const m of src.matchAll(/\b([A-Za-z_][A-Za-z0-9_]*)\s*\(/g)) add(m[1]);
-  // explicit code words
+  // explicit words
   for (const w of CODE_WORDS) {
     const re = new RegExp(`\\b${String(w).replace('.', '\\.')}\\b`, 'g');
     if (re.test(src)) add(w);
@@ -175,7 +124,7 @@ function protectCodeTokens(text) {
 
   if (!found.length) return { protectedText: src, replacements: [] };
 
-  // IMPORTANT: longer tokens first (console.log before console)
+  // longest first (console.log before console)
   found.sort((a, b) => b.length - a.length);
 
   let out = src;
@@ -196,19 +145,136 @@ function restoreCodeTokens(text, replacements) {
   return out;
 }
 
+// -------- chunking --------
+function splitText(text, maxLen = 480) {
+  const s = String(text || '');
+  if (s.length <= maxLen) return [s];
+
+  const parts = [];
+  let i = 0;
+  while (i < s.length) {
+    let end = Math.min(i + maxLen, s.length);
+    const slice = s.slice(i, end);
+    const lastSpace = slice.lastIndexOf(' ');
+    if (lastSpace > 220) end = i + lastSpace;
+    parts.push(s.slice(i, end));
+    i = end;
+  }
+  return parts;
+}
+
+// -------- Translators --------
+async function myMemoryTranslateRaw(text) {
+  const clean = String(text || '').trim();
+  if (!clean) return clean;
+
+  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(clean)}&langpair=${FROM}|${TO}`;
+  const { data } = await axios.get(url, {
+    timeout: 25000,
+    headers: { 'User-Agent': 'Mozilla/5.0 (Render; Node.js)' }
+  });
+
+  const status = Number(data?.responseStatus);
+  const translated = String(data?.responseData?.translatedText || '').trim();
+
+  // считаем это ошибкой/лимитом: вернули не 200, или перевод пустой, или перевод==оригинал при явном английском
+  if ((status && status !== 200) || !translated) {
+    const err = new Error(`MyMemory status=${status || 'unknown'}`);
+    err.code = 'MYMEMORY_BAD';
+    throw err;
+  }
+
+  return translated;
+}
+
+async function libreTranslateRaw(text) {
+  const endpoint = String(process.env.LIBRETRANSLATE_URL || '').trim();
+  if (!endpoint) throw new Error('LibreTranslate not configured');
+
+  const payload = {
+    q: String(text || ''),
+    source: FROM,
+    target: TO,
+    format: 'text'
+  };
+
+  const apiKey = String(process.env.LIBRETRANSLATE_API_KEY || '').trim();
+  if (apiKey) payload.api_key = apiKey;
+
+  const { data } = await axios.post(endpoint, payload, {
+    timeout: 30000,
+    headers: { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0 (Render; Node.js)' }
+  });
+
+  const translated = String(data?.translatedText || '').trim();
+  if (!translated) throw new Error('LibreTranslate empty');
+  return translated;
+}
+
+async function translateWithRetry(fn, label) {
+  const tries = 3;
+  let lastErr = null;
+
+  for (let i = 0; i < tries; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastErr = e;
+      // backoff: 400ms, 900ms, 1700ms (+ jitter)
+      const base = [400, 900, 1700][i] || 1700;
+      await sleep(base + rand(0, 250));
+    }
+  }
+
+  const err = new Error(`${label} failed: ${lastErr?.message || 'unknown'}`);
+  err.cause = lastErr;
+  throw err;
+}
+
+async function translateShort(text) {
+  const clean = String(text || '').trim();
+  if (!clean) return clean;
+
+  const cacheKey = `${FROM}|${TO}|${clean}`;
+  const cached = cacheGet(cacheKey);
+  if (cached) return cached;
+
+  // 1) MyMemory (retry)
+  try {
+    const tr = await limitTranslate(() => translateWithRetry(() => myMemoryTranslateRaw(clean), 'MyMemory'));
+    cacheSet(cacheKey, tr);
+    return tr;
+  } catch {
+    // 2) Fallback LibreTranslate (retry), if configured
+    try {
+      const tr = await limitTranslate(() => translateWithRetry(() => libreTranslateRaw(clean), 'LibreTranslate'));
+      cacheSet(cacheKey, tr);
+      return tr;
+    } catch {
+      // give up -> original
+      return clean;
+    }
+  }
+}
+
+async function translateLong(text) {
+  const chunks = splitText(text, 480);
+  let out = '';
+  for (const ch of chunks) out += await translateShort(ch);
+  return out;
+}
+
 async function toRuIfNeeded(text) {
   const t = String(text || '').trim();
   if (!t) return t;
-
-  // Переводим только реальные английские фразы, иначе мусор/навигацию не трогаем
   if (!looksEnglish(t)) return t;
 
   const { protectedText, replacements } = protectCodeTokens(t);
-  const tr = await translateLong(protectedText, 'en', 'ru');
+  const tr = await translateLong(protectedText);
   return restoreCodeTokens(tr, replacements);
 }
 
-// ==================== HELPERS ====================
+// -------------------- HTML helpers --------------------
 function absolutizeUrl(src, baseUrl) {
   try {
     if (!src) return src;
@@ -230,30 +296,6 @@ function removeOnAttributes($root) {
   });
 }
 
-// ==================== API ROUTES ====================
-
-// Image proxy (чтобы картинки не отваливались из-за CORS/hotlink)
-app.get('/api/image', async (req, res) => {
-  try {
-    const url = String(req.query.url || '').trim();
-    if (!/^https?:\/\//i.test(url)) return res.status(400).end('bad url');
-
-    const r = await axios.get(url, {
-      responseType: 'arraybuffer',
-      timeout: 20000,
-      headers: { 'User-Agent': 'Mozilla/5.0 (Render; Node.js)' },
-      maxContentLength: 4 * 1024 * 1024,
-      maxBodyLength: 4 * 1024 * 1024
-    });
-
-    res.setHeader('Content-Type', r.headers['content-type'] || 'image/jpeg');
-    res.setHeader('Cache-Control', 'public, max-age=86400');
-    res.send(Buffer.from(r.data));
-  } catch {
-    res.status(404).end('image fetch failed');
-  }
-});
-
 function pickMainScope($, url) {
   const host = (() => {
     try { return new URL(url).hostname; } catch { return ''; }
@@ -263,9 +305,7 @@ function pickMainScope($, url) {
     const w = $('#mw-content-text').first();
     if (w.length) return w;
   }
-
   if (host.includes('w3schools.com')) {
-    // W3Schools main content
     const main = $('#main').first();
     if (main.length) return main;
     const w3 = $('.w3-main').first();
@@ -288,7 +328,7 @@ function cleanupScope($scope) {
 async function translateTextNodesCheerio($, $root, baseUrl) {
   const SKIP = new Set(['script', 'style', 'noscript', 'pre', 'code', 'kbd', 'samp', 'var']);
 
-  // Keep images
+  // images -> proxy (keep them)
   $root.find('img').each((_, el) => {
     const $img = $(el);
     const srcRaw = $img.attr('src') || $img.attr('data-src') || $img.attr('data-original');
@@ -301,13 +341,11 @@ async function translateTextNodesCheerio($, $root, baseUrl) {
     $img.attr('style', (String($img.attr('style') || '') + ';max-width:100%;height:auto;border-radius:12px;').trim());
   });
 
-  // 1) collect unique segments
   const nodes = $root.find('*').addBack().contents();
   const uniq = new Set();
 
   nodes.each((_, node) => {
     if (node.type !== 'text') return;
-
     const parentTag = node.parent?.name ? String(node.parent.name).toLowerCase() : '';
     if (SKIP.has(parentTag)) return;
 
@@ -317,7 +355,7 @@ async function translateTextNodesCheerio($, $root, baseUrl) {
     const t = raw.replace(/\s+/g, ' ').trim();
     if (!t || t.length < 3) return;
 
-    // do not translate code-like fragments
+    // don't translate code-like fragments
     if (/[{};<>]|=>|::|->|===|!==/.test(t)) return;
 
     // only english phrases
@@ -326,18 +364,19 @@ async function translateTextNodesCheerio($, $root, baseUrl) {
     uniq.add(t);
   });
 
-  const list = Array.from(uniq).slice(0, 750);
+  const list = Array.from(uniq).slice(0, 800);
   const map = new Map();
 
-  // 2) translate
+  let translatedCount = 0;
+
   for (const t of list) {
-    map.set(t, await toRuIfNeeded(t));
+    const tr = await toRuIfNeeded(t);
+    map.set(t, tr);
+    if (tr && tr !== t) translatedCount++;
   }
 
-  // 3) replace back
   nodes.each((_, node) => {
     if (node.type !== 'text') return;
-
     const parentTag = node.parent?.name ? String(node.parent.name).toLowerCase() : '';
     if (SKIP.has(parentTag)) return;
 
@@ -352,7 +391,7 @@ async function translateTextNodesCheerio($, $root, baseUrl) {
     node.data = lead + map.get(t) + trail;
   });
 
-  // Translate alt/title of images
+  // alt/title
   const imgs = $root.find('img');
   for (let i = 0; i < imgs.length; i++) {
     const $img = $(imgs[i]);
@@ -361,7 +400,31 @@ async function translateTextNodesCheerio($, $root, baseUrl) {
     if (alt && looksEnglish(alt)) $img.attr('alt', await toRuIfNeeded(alt));
     if (title && looksEnglish(title)) $img.attr('title', await toRuIfNeeded(title));
   }
+
+  return { totalSegments: list.length, translatedSegments: translatedCount };
 }
+
+// -------------------- API --------------------
+app.get('/api/image', async (req, res) => {
+  try {
+    const url = String(req.query.url || '').trim();
+    if (!/^https?:\/\//i.test(url)) return res.status(400).end('bad url');
+
+    const r = await axios.get(url, {
+      responseType: 'arraybuffer',
+      timeout: 20000,
+      headers: { 'User-Agent': 'Mozilla/5.0 (Render; Node.js)' },
+      maxContentLength: 5 * 1024 * 1024,
+      maxBodyLength: 5 * 1024 * 1024
+    });
+
+    res.setHeader('Content-Type', r.headers['content-type'] || 'image/jpeg');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.send(Buffer.from(r.data));
+  } catch {
+    res.status(404).end('image fetch failed');
+  }
+});
 
 app.post('/api/translate-url', async (req, res) => {
   try {
@@ -392,10 +455,9 @@ app.post('/api/translate-url', async (req, res) => {
     const $scope = pickMainScope($, url);
     cleanupScope($scope);
 
-    // ✅ FIX: real container
+    // IMPORTANT: real container
     const $out = $('<div id="extracted"></div>');
 
-    // Keep images + examples + text blocks
     const selector =
       'h1,h2,h3,h4,h5,h6,p,ul,ol,li,pre,code,blockquote,figure,img,figcaption,' +
       'div.w3-panel,div.w3-note,div.w3-example,div.w3-info,div.w3-warning';
@@ -405,7 +467,7 @@ app.post('/api/translate-url', async (req, res) => {
     let added = 0;
     let charBudget = 0;
     const MAX_ELEMS = 650;
-    const MAX_CHARS = 150000;
+    const MAX_CHARS = 160000;
 
     for (const el of els) {
       if (added >= MAX_ELEMS || charBudget >= MAX_CHARS) break;
@@ -438,13 +500,14 @@ app.post('/api/translate-url', async (req, res) => {
       });
     }
 
-    await translateTextNodesCheerio($, $out, url);
+    const segInfo = await translateTextNodesCheerio($, $out, url);
 
     res.json({
       success: true,
       title: await toRuIfNeeded(rawTitle),
       contentHtml: $out.html() || '\n\nНе удалось извлечь контент.',
-      sourceUrl: url
+      sourceUrl: url,
+      debug: segInfo
     });
   } catch (e) {
     res.status(500).json({ success: false, error: `Ошибка при переводе: ${e.message || 'unknown'}` });
@@ -455,15 +518,14 @@ app.post('/api/translate-text', async (req, res) => {
   try {
     const { text } = req.body || {};
     if (!text) return res.status(400).json({ success: false, error: 'Текст не предоставлен' });
-
-    const translated = await translateLong(text, 'en', 'ru');
+    const translated = await translateLong(text);
     res.json({ success: true, translated });
   } catch (e) {
     res.status(500).json({ success: false, error: `Ошибка перевода: ${e.message || 'unknown'}` });
   }
 });
 
-// Weather
+// Weather (as-is)
 app.get('/api/weather', async (req, res) => {
   try {
     const city = String(req.query.city || 'Moscow');
@@ -493,7 +555,7 @@ app.get('/api/weather', async (req, res) => {
   }
 });
 
-// Articles
+// Articles (same list)
 const ARTICLES = {
   programming: [
     { title: 'JavaScript Tutorial', url: 'https://www.w3schools.com/js/', titleRu: 'Учебник JavaScript' },
