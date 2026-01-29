@@ -136,7 +136,6 @@
         card.addEventListener('click', () => {
           const url = card.dataset.url || '';
           if (!url) return;
-          // ✅ Открываем отдельную страницу статьи
           window.location.href = `/translate?url=${encodeURIComponent(url)}`;
         });
       });
@@ -251,18 +250,18 @@
     loadWeather();
     setInterval(loadWeather, 600000);
 
-    // ✅ ДОБАВЛЕНО: автоперевод статьи при переходе из карточек на /translate?url=...
+    // ✅ Автоперевод при переходе на /translate?url=...
     const params = new URLSearchParams(window.location.search);
     const urlFromCard = params.get('url');
     if (urlFromCard) {
       const input = byId('urlInput');
       if (input) input.value = urlFromCard;
 
+      // вкладка URL-перевода — только если реально существует
+      if (byId('urlTab')) switchTab('url');
+
       const out = byId('translatedArea') || byId('contentArea');
       if (out) translateUrlInto(out);
-
-      // Переключаемся на вкладку URL-перевода (если у тебя другой ключ вкладки — скажи)
-      switchTab('url');
     } else {
       loadArticles('programming');
     }
