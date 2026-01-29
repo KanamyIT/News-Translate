@@ -55,6 +55,24 @@
     el.innerHTML = `<div class="result"><h3 style="color:var(--orange);margin-bottom:10px">Ошибка</h3><p>${escapeHtml(msg || 'Ошибка')}</p></div>`;
   }
 
+  // ✅ Автоопределение направления по URL (когда на странице нет кнопок EN↔RU)
+  function guessLangPairFromUrl(url) {
+    const u = String(url || '').trim().toLowerCase();
+    if (!u) return { from: 'en', to: 'ru' };
+
+    // типичные англ. источники
+    if (u.includes('w3schools.com') || u.includes('wikipedia.org/wiki/') || u.includes('react.dev') || u.includes('nodejs.org')) {
+      return { from: 'en', to: 'ru' };
+    }
+
+    // явно русские домены/страницы
+    if (u.includes('ru.wikipedia.org') || u.includes('.ru/') || u.endsWith('.ru')) {
+      return { from: 'ru', to: 'en' };
+    }
+
+    return { from: 'en', to: 'ru' };
+  }
+
   // ====== STATE ======
   const state = {
     urlFrom: 'en', urlTo: 'ru',
@@ -150,6 +168,15 @@
     const url = String(input?.value || '').trim();
     if (!url) return alert('Вставь URL');
 
+    // ✅ Если на странице нет кнопок направления (как в translate.html),
+    // автоматически подбираем from/to по URL.
+    const hasUrlDirButtons = !!(byId('urlDirEnRu') || byId('urlDirRuEn'));
+    if (!hasUrlDirButtons) {
+      const pair = guessLangPairFromUrl(url);
+      state.urlFrom = pair.from;
+      state.urlTo = pair.to;
+    }
+
     showLoading(outputEl, 'Перевожу страницу...');
 
     try {
@@ -230,7 +257,7 @@
       });
     });
 
-    // Direction toggles
+    // Direction toggles (есть только на главной странице, на translate.html их нет)
     byId('urlDirEnRu')?.addEventListener('click', () => { state.urlFrom = 'en'; state.urlTo = 'ru'; setDirUI('url', 'en', 'ru'); });
     byId('urlDirRuEn')?.addEventListener('click', () => { state.urlFrom = 'ru'; state.urlTo = 'en'; setDirUI('url', 'ru', 'en'); });
     byId('textDirEnRu')?.addEventListener('click', () => { state.textFrom = 'en'; state.textTo = 'ru'; setDirUI('text', 'en', 'ru'); });
@@ -257,7 +284,6 @@
       const input = byId('urlInput');
       if (input) input.value = urlFromCard;
 
-      // вкладка URL-перевода — только если реально существует
       if (byId('urlTab')) switchTab('url');
 
       const out = byId('translatedArea') || byId('contentArea');
