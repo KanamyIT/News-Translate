@@ -240,7 +240,6 @@ async function translateBatch(lines) {
   const joined = protectedLines.join(SEP);
   const translatedJoined = await translateShort(joined);
 
-  // if failed, fallback per line
   const parts = translatedJoined.split(SEP_RE);
   if (parts.length !== lines.length) {
     const out = [];
@@ -314,7 +313,6 @@ async function translateTextNodesCheerio($, $root, baseUrl, deadlineTs) {
     'a','button','label','input','select','option','nav'
   ]);
 
-  // images keep
   $root.find('img').each((_, el) => {
     const $img = $(el);
     const srcRaw = $img.attr('src') || $img.attr('data-src') || $img.attr('data-original');
@@ -337,8 +335,6 @@ async function translateTextNodesCheerio($, $root, baseUrl, deadlineTs) {
     if (!raw || !raw.trim()) return;
 
     const t = normalizeText(raw);
-
-    // режем мусор
     if (t.length < 20) return;
     if (!looksEnglish(t)) return;
     if (looksCodey(t)) return;
@@ -346,7 +342,7 @@ async function translateTextNodesCheerio($, $root, baseUrl, deadlineTs) {
     if (!uniq.has(t)) uniq.set(t, t);
   });
 
-  const list = Array.from(uniq.keys()).slice(0, 160); // меньше сегментов = быстрее
+  const list = Array.from(uniq.keys()).slice(0, 160);
   const batches = splitByBudget(list, 1600);
 
   const map = new Map();
@@ -364,7 +360,6 @@ async function translateTextNodesCheerio($, $root, baseUrl, deadlineTs) {
     }
   }
 
-  // apply replacements
   nodes.each((_, node) => {
     if (node.type !== 'text') return;
     const parentTag = node.parent?.name ? String(node.parent.name).toLowerCase() : '';
@@ -490,7 +485,6 @@ app.post('/api/translate-url', async (req, res) => {
       });
     }
 
-    // --- translate with time budget ---
     const tTr0 = Date.now();
     const deadline = Date.now() + TRANSLATE_BUDGET_MS;
     const segInfo = await translateTextNodesCheerio($, $out, url, deadline);
@@ -512,10 +506,77 @@ app.post('/api/translate-url', async (req, res) => {
       }
     });
   } catch (e) {
-    // не отдаём “пустой 502”: возвращаем нормальную ошибку JSON
     res.status(500).json({ success: false, error: e?.message || 'unknown' });
   }
 });
+
+/* ===================== ДОБАВЛЕНО: ARTICLES + WEATHER ===================== */
+
+const ARTICLES = {
+  programming: [
+    { title: 'JavaScript Tutorial', url: 'https://www.w3schools.com/js/', titleRu: 'Учебник JavaScript' },
+    { title: 'Python Tutorial', url: 'https://www.w3schools.com/python/', titleRu: 'Учебник Python' },
+    { title: 'HTML Tutorial', url: 'https://www.w3schools.com/html/', titleRu: 'Учебник HTML' },
+    { title: 'CSS Tutorial', url: 'https://www.w3schools.com/css/', titleRu: 'Учебник CSS' },
+    { title: 'React Docs', url: 'https://react.dev/', titleRu: 'Документация React' },
+    { title: 'Node.js Docs', url: 'https://nodejs.org/en/docs/', titleRu: 'Документация Node.js' }
+  ],
+  history: [
+    { title: 'Ancient Rome', url: 'https://en.wikipedia.org/wiki/Ancient_Rome', titleRu: 'Древний Рим' },
+    { title: 'Middle Ages', url: 'https://en.wikipedia.org/wiki/Middle_Ages', titleRu: 'Средние века' },
+    { title: 'Renaissance', url: 'https://en.wikipedia.org/wiki/Renaissance', titleRu: 'Ренессанс' },
+    { title: 'French Revolution', url: 'https://en.wikipedia.org/wiki/French_Revolution', titleRu: 'Французская революция' },
+    { title: 'World War I', url: 'https://en.wikipedia.org/wiki/World_War_I', titleRu: 'Первая мировая война' },
+    { title: 'World War II', url: 'https://en.wikipedia.org/wiki/World_War_II', titleRu: 'Вторая мировая война' }
+  ],
+  games: [
+    { title: 'Video game', url: 'https://en.wikipedia.org/wiki/Video_game', titleRu: 'Видеоигра' },
+    { title: 'Game design', url: 'https://en.wikipedia.org/wiki/Game_design', titleRu: 'Дизайн игры' },
+    { title: 'Game Programming Patterns', url: 'https://gameprogrammingpatterns.com/', titleRu: 'Паттерны программирования игр' }
+  ],
+  cinema: [
+    { title: 'History of film', url: 'https://en.wikipedia.org/wiki/History_of_film', titleRu: 'История кинематографа' },
+    { title: 'Cinematography', url: 'https://en.wikipedia.org/wiki/Cinematography', titleRu: 'Кинематография' },
+    { title: 'Film directing', url: 'https://en.wikipedia.org/wiki/Film_directing', titleRu: 'Режиссура фильма' }
+  ]
+};
+
+app.get('/api/articles/:category', (req, res) => {
+  const category = String(req.params.category || '');
+  const list = ARTICLES[category] || [];
+  res.json({ success: true, articles: list.map(a => ({ ...a, title: a.titleRu || a.title })) });
+});
+
+app.get('/api/weather', async (req, res) => {
+  try {
+    const city = String(req.query.city || 'Moscow');
+    const { data } = await axios.get(
+      `https://wttr.in/${encodeURIComponent(city)}?format=j1&lang=ru`,
+      { timeout: 15000, headers: { 'User-Agent': 'Mozilla/5.0 (Render; Node.js)', 'Accept-Language': 'ru' } }
+    );
+
+    const current = data?.current_condition?.[0];
+    const area = data?.nearest_area?.[0];
+    const desc = current?.lang_ru?.[0]?.value || current?.weatherDesc?.[0]?.value || '—';
+
+    const forecast = (data?.weather || []).slice(0, 3).map((d) => {
+      const mid = (d.hourly || []).find(h => String(h.time) === '1200') || (d.hourly || [])[0] || null;
+      const raw = mid?.lang_ru?.[0]?.value || mid?.weatherDesc?.[0]?.value || '—';
+      return { date: d.date, minC: d.mintempC, maxC: d.maxtempC, desc: raw };
+    });
+
+    res.json({
+      success: true,
+      location: area?.areaName?.[0]?.value || city,
+      current: { tempC: current?.temp_C, humidity: current?.humidity, windKmph: current?.windspeedKmph, desc },
+      forecast
+    });
+  } catch (e) {
+    res.json({ success: false, error: e?.message || 'weather error' });
+  }
+});
+
+/* ===================== /ДОБАВЛЕНО ===================== */
 
 app.get('/api/health', (req, res) => res.json({ success: true }));
 
