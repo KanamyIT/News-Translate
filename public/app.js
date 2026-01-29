@@ -1,5 +1,11 @@
 (() => {
-  const byId = (id) => document.getElementById(id);
+  const byId = (id) => {
+  if (!id || typeof id !== 'string') return null;
+  const k = id.trim();
+  if (!k) return null;
+  return document.getElementById(k);
+};
+
   const qsa = (sel) => Array.from(document.querySelectorAll(sel));
 
   function escapeHtml(str) {
